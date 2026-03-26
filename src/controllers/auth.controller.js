@@ -3,7 +3,6 @@ import { getAuthenticatedUser, loginUser } from "../services/auth.service.js";
 export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    console.log("Login attempt for email:", email);
     const result = await loginUser({ email, password });
 
     res.status(200).json(result);

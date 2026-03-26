@@ -39,3 +39,21 @@ export const authMiddleware = (req, _res, next) => {
     next(error);
   }
 };
+
+const normalizeBoolean = (value) => value === true || value === 1 || value === "1";
+
+export const requireSuperAdmin = (req, _res, next) => {
+  try {
+    if (!req.user) {
+      throw createHttpError(401, "Authentication required");
+    }
+
+    if (!normalizeBoolean(req.user.is_super_admin)) {
+      throw createHttpError(403, "Only super admin can perform this action");
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+};

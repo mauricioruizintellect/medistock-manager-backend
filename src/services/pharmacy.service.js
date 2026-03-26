@@ -1,0 +1,171 @@
+import pool from "../config/database.js";
+
+const createHttpError = (status, message) => {
+  const error = new Error(message);
+  error.status = status;
+  return error;
+};
+
+const ALLOWED_STATUS = new Set(["active", "inactive"]);
+
+const normalizeStringField = (value) => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+
+  const normalized = String(value).trim();
+  return normalized === "" ? null : normalized;
+};
+
+const normalizeName = (value, isRequired = false) => {
+  const normalized = normalizeStringField(value);
+
+  if (isRequired && !normalized) {
+    throw createHttpError(400, "Pharmacy name is required");
+  }
+
+  return normalized;
+};
+
+const normalizeStatus = (value, isRequired = false) => {
+  if (value === undefined || value === null || String(value).trim() === "") {
+    if (isRequired) return "active";
+    return undefined;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+
+  if (!ALLOWED_STATUS.has(normalized)) {
+    throw createHttpError(400, "Invalid status. Allowed values: active, inactive");
+  }
+
+  return normalized;
+};
+
+const buildCreatePayload = (data) => ({
+  name: normalizeName(data.name, true),
+  legal_name: normalizeStringField(data.legal_name),
+  tax_id: normalizeStringField(data.tax_id),
+  phone: normalizeStringField(data.phone),
+  email: normalizeStringField(data.email),
+  address: normalizeStringField(data.address),
+  city: normalizeStringField(data.city),
+  country: normalizeStringField(data.country),
+  status: normalizeStatus(data.status, true),
+});
+
+const buildUpdatePayload = (data) => {
+  const payload = {};
+
+  if (Object.prototype.hasOwnProperty.call(data, "name")) {
+    const name = normalizeName(data.name, false);
+    if (!name) {
+      throw createHttpError(400, "Pharmacy name cannot be empty");
+    }
+    payload.name = name;
+  }
+
+  const optionalFields = ["legal_name", "tax_id", "phone", "email", "address", "city", "country"];
+  optionalFields.forEach((field) => {
+    if (Object.prototype.hasOwnProperty.call(data, field)) {
+      payload[field] = normalizeStringField(data[field]);
+    }
+  });
+
+  if (Object.prototype.hasOwnProperty.call(data, "status")) {
+    payload.status = normalizeStatus(data.status, false);
+  }
+
+  if (Object.keys(payload).length === 0) {
+    throw createHttpError(400, "No valid fields provided for update");
+  }
+
+  return payload;
+};
+
+const getPharmacyById = async (pharmacyId) => {
+  const [rows] = await pool.execute(
+    `
+      SELECT
+        id,
+        name,
+        legal_name,
+        tax_id,
+        phone,
+        email,
+        address,
+        city,
+        country,
+        status,
+        created_at,
+        updated_at
+      FROM pharmacies
+      WHERE id = ?
+      LIMIT 1
+    `,
+    [pharmacyId]
+  );
+
+  return rows[0] || null;
+};
+
+const ensureUniqueName = async (name, currentId = null) => {
+  if (!name) return;
+
+  const [existingRows] = await pool.execute(
+    `
+      SELECT id
+      FROM pharmacies
+      WHERE LOWER(name) = LOWER(?)
+      ${currentId ? "AND id <> ?" : ""}
+      LIMIT 1
+    `,
+    currentId ? [name, currentId] : [name]
+  );
+
+  if (existingRows.length > 0) {
+    throw createHttpError(409, "Pharmacy already exists");
+  }
+};
+
+export const createPharmacy = async (data) => {
+  const payload = buildCreatePayload(data);
+  await ensureUniqueName(payload.name);
+
+  const fields = Object.keys(payload);
+  const placeholders = fields.map(() => "?").join(", ");
+  const values = fields.map((field) => payload[field]);
+
+  const [result] = await pool.execute(
+    `INSERT INTO pharmacies (${fields.join(", ")}) VALUES (${placeholders})`,
+    values
+  );
+
+  return getPharmacyById(result.insertId);
+};
+
+export const updatePharmacy = async (pharmacyId, data) => {
+  const pharmacyIdNumber = Number.parseInt(pharmacyId, 10);
+
+  if (Number.isNaN(pharmacyIdNumber) || pharmacyIdNumber <= 0) {
+    throw createHttpError(400, "Invalid pharmacy id");
+  }
+
+  const currentPharmacy = await getPharmacyById(pharmacyIdNumber);
+  if (!currentPharmacy) {
+    throw createHttpError(404, "Pharmacy not found");
+  }
+
+  const payload = buildUpdatePayload(data);
+  await ensureUniqueName(payload.name, pharmacyIdNumber);
+
+  const fields = Object.keys(payload);
+  const setClause = fields.map((field) => `${field} = ?`).join(", ");
+  const values = fields.map((field) => payload[field]);
+
+  await pool.execute(`UPDATE pharmacies SET ${setClause} WHERE id = ?`, [
+    ...values,
+    pharmacyIdNumber,
+  ]);
+
+  return getPharmacyById(pharmacyIdNumber);
+};
