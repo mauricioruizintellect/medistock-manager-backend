@@ -5,6 +5,7 @@ import authRoutes from "./auth.routes.js";
 import pharmacyRoutes from "./pharmacy.routes.js";
 import userRoutes from "./user.routes.js";
 import branchRoutes from "./branch.routes.js";
+import userBranchRoleRoutes from "./user-branch-role.routes.js";
 
 const router = Router();
 
@@ -21,5 +22,6 @@ router.use("/auth", authRoutes);
 router.use("/pharmacies", pharmacyRoutes);
 router.use("/users", userRoutes);
 router.use("/branches", branchRoutes);
+router.use("/user-branch-roles", userBranchRoleRoutes);
 
 export default router;
