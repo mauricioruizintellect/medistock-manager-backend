@@ -7,6 +7,7 @@ import userRoutes from "./user.routes.js";
 import branchRoutes from "./branch.routes.js";
 import userBranchRoleRoutes from "./user-branch-role.routes.js";
 import productCategoryRoutes from "./product-category.routes.js";
+import productRoutes from "./product.routes.js";
 
 const router = Router();
 
@@ -25,5 +26,6 @@ router.use("/users", userRoutes);
 router.use("/branches", branchRoutes);
 router.use("/user-branch-roles", userBranchRoleRoutes);
 router.use("/product-categories", productCategoryRoutes);
+router.use("/products", productRoutes);
 
 export default router;
