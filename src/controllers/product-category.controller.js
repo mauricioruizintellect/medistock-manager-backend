@@ -1,4 +1,7 @@
-import { createCategory } from "../services/product-category.service.js";
+import {
+  createCategory,
+  getCategoriesByPharmacy,
+} from "../services/product-category.service.js";
 
 export const createCategoryHandler = async (req, res, next) => {
   try {
@@ -8,6 +11,16 @@ export const createCategoryHandler = async (req, res, next) => {
       message: "Category created successfully",
       category,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getCategoriesByPharmacyHandler = async (req, res, next) => {
+  try {
+    const result = await getCategoriesByPharmacy(req.query, req.user.userId);
+
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

@@ -186,3 +186,45 @@ export const createCategory = async (data, actorUserId) => {
 
   return getCategoryById(result.insertId);
 };
+
+export const getCategoriesByPharmacy = async (params, actorUserId) => {
+  const actor = await getActorContextById(actorUserId);
+  const payloadPharmacyId = parseOptionalInt(params.pharmacy_id, "pharmacy_id");
+
+  const pharmacyId = actor.is_super_admin
+    ? parseRequiredInt(payloadPharmacyId, "pharmacy_id")
+    : Number.parseInt(actor.pharmacy_id, 10);
+
+  if (!actor.is_super_admin && payloadPharmacyId && payloadPharmacyId !== pharmacyId) {
+    throw createHttpError(403, "You can only view categories from your assigned pharmacy");
+  }
+
+  await ensurePharmacyExists(pharmacyId);
+
+  const [rows] = await pool.execute(
+    `
+      SELECT
+        pc.id,
+        pc.pharmacy_id,
+        p.name AS pharmacy_name,
+        pc.name,
+        pc.description,
+        pc.status,
+        pc.created_by,
+        pc.updated_by,
+        pc.created_at,
+        pc.updated_at
+      FROM product_categories pc
+      JOIN pharmacies p ON p.id = pc.pharmacy_id
+      WHERE pc.pharmacy_id = ?
+      ORDER BY pc.name ASC
+    `,
+    [pharmacyId]
+  );
+
+  return {
+    pharmacy_id: pharmacyId,
+    total: rows.length,
+    items: rows,
+  };
+};
