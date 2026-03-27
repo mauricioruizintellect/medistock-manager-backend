@@ -43,7 +43,8 @@ const getUserByEmail = async (email) => {
       u.status,
       u.is_super_admin,
       u.role_id,
-      r.code AS role_code
+      r.code AS role_code,
+      r.name as role_name
     FROM users u
     LEFT JOIN roles r ON r.id = u.role_id
     WHERE u.email = ?
@@ -64,7 +65,8 @@ const getUserById = async (userId) => {
       u.status,
       u.is_super_admin,
       u.role_id,
-      r.code AS role_code
+      r.code AS role_code,
+      r.name AS role_name
     FROM users u
     LEFT JOIN roles r ON r.id = u.role_id
     WHERE u.id = ?
@@ -117,6 +119,7 @@ const shapeUserResponse = async (user) => {
     is_super_admin: isSuperAdmin,
     role_id: user.role_id || null,
     role_code: user.role_code ? String(user.role_code).toUpperCase() : null,
+    role_name: user.role_name ? String(user.role_name).toUpperCase() : null,
   };
 
   if (!isSuperAdmin) {
