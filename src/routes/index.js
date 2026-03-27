@@ -10,6 +10,7 @@ import productCategoryRoutes from "./product-category.routes.js";
 import productRoutes from "./product.routes.js";
 import branchProductRoutes from "./branch-product.routes.js";
 import inventoryLotRoutes from "./inventory-lot.routes.js";
+import saleRoutes from "./sale.routes.js";
 
 const router = Router();
 
@@ -31,5 +32,6 @@ router.use("/product-categories", productCategoryRoutes);
 router.use("/products", productRoutes);
 router.use("/branch-products", branchProductRoutes);
 router.use("/inventory-lots", inventoryLotRoutes);
+router.use("/sales", saleRoutes);
 
 export default router;
