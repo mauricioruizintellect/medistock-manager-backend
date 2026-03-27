@@ -3,11 +3,20 @@ import {
   createPharmacyHandler,
   updatePharmacyHandler,
 } from "../controllers/pharmacy.controller.js";
-import { authMiddleware, requireSuperAdmin } from "../middlewares/auth.middleware.js";
+import {
+  authMiddleware,
+  requireAdminOrSuperAdmin,
+  requirePharmacyAdminOrSuperAdmin,
+} from "../middlewares/auth.middleware.js";
 
 const router = Router();
 
-router.post("/", authMiddleware, requireSuperAdmin, createPharmacyHandler);
-router.put("/:id", authMiddleware, requireSuperAdmin, updatePharmacyHandler);
+router.post("/", authMiddleware, requireAdminOrSuperAdmin, createPharmacyHandler);
+router.put(
+  "/:id",
+  authMiddleware,
+  requirePharmacyAdminOrSuperAdmin,
+  updatePharmacyHandler
+);
 
 export default router;

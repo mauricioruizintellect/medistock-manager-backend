@@ -41,17 +41,33 @@ const normalizeStatus = (value, isRequired = false) => {
   return normalized;
 };
 
-const buildCreatePayload = (data) => ({
-  name: normalizeName(data.name, true),
-  legal_name: normalizeStringField(data.legal_name),
-  tax_id: normalizeStringField(data.tax_id),
-  phone: normalizeStringField(data.phone),
-  email: normalizeStringField(data.email),
-  address: normalizeStringField(data.address),
-  city: normalizeStringField(data.city),
-  country: normalizeStringField(data.country),
-  status: normalizeStatus(data.status, true),
-});
+const normalizeActorUserId = (actorUserId) => {
+  const normalized = Number.parseInt(actorUserId, 10);
+
+  if (Number.isNaN(normalized) || normalized <= 0) {
+    throw createHttpError(401, "Invalid authenticated user");
+  }
+
+  return normalized;
+};
+
+const buildCreatePayload = (data, actorUserId) => {
+  const normalizedActorUserId = normalizeActorUserId(actorUserId);
+
+  return {
+    name: normalizeName(data.name, true),
+    legal_name: normalizeStringField(data.legal_name),
+    tax_id: normalizeStringField(data.tax_id),
+    phone: normalizeStringField(data.phone),
+    email: normalizeStringField(data.email),
+    address: normalizeStringField(data.address),
+    city: normalizeStringField(data.city),
+    country: normalizeStringField(data.country),
+    status: normalizeStatus(data.status, true),
+    created_by: normalizedActorUserId,
+    updated_by: normalizedActorUserId,
+  };
+};
 
 const buildUpdatePayload = (data) => {
   const payload = {};
@@ -96,6 +112,8 @@ const getPharmacyById = async (pharmacyId) => {
         city,
         country,
         status,
+        created_by,
+        updated_by,
         created_at,
         updated_at
       FROM pharmacies
@@ -128,7 +146,7 @@ const ensureUniqueName = async (name, currentId = null) => {
 };
 
 export const createPharmacy = async (data) => {
-  const payload = buildCreatePayload(data);
+  const payload = buildCreatePayload(data, data.actorUserId);
   await ensureUniqueName(payload.name);
 
   const fields = Object.keys(payload);
@@ -156,6 +174,7 @@ export const updatePharmacy = async (pharmacyId, data) => {
   }
 
   const payload = buildUpdatePayload(data);
+  payload.updated_by = normalizeActorUserId(data.actorUserId);
   await ensureUniqueName(payload.name, pharmacyIdNumber);
 
   const fields = Object.keys(payload);

@@ -22,6 +22,8 @@ const buildJwtToken = (user) => {
       userId: user.id,
       email: user.email,
       is_super_admin: normalizeBoolean(user.is_super_admin),
+      role_id: user.role_id || null,
+      role_code: user.role_code ? String(user.role_code).toUpperCase() : null,
     },
     jwtSecret,
     {
@@ -33,15 +35,18 @@ const buildJwtToken = (user) => {
 const getUserByEmail = async (email) => {
   const query = `
     SELECT
-      id,
-      first_name,
-      last_name,
-      email,
-      password_hash,
-      status,
-      is_super_admin
-    FROM users
-    WHERE email = ?
+      u.id,
+      u.first_name,
+      u.last_name,
+      u.email,
+      u.password_hash,
+      u.status,
+      u.is_super_admin,
+      u.role_id,
+      r.code AS role_code
+    FROM users u
+    LEFT JOIN roles r ON r.id = u.role_id
+    WHERE u.email = ?
     LIMIT 1
   `;
 
@@ -52,14 +57,17 @@ const getUserByEmail = async (email) => {
 const getUserById = async (userId) => {
   const query = `
     SELECT
-      id,
-      first_name,
-      last_name,
-      email,
-      status,
-      is_super_admin
-    FROM users
-    WHERE id = ?
+      u.id,
+      u.first_name,
+      u.last_name,
+      u.email,
+      u.status,
+      u.is_super_admin,
+      u.role_id,
+      r.code AS role_code
+    FROM users u
+    LEFT JOIN roles r ON r.id = u.role_id
+    WHERE u.id = ?
     LIMIT 1
   `;
 
@@ -68,7 +76,7 @@ const getUserById = async (userId) => {
 };
 
 const getUserPharmaciesAndRoles = async (userId) => {
-  const query = `
+  /* const query = `
     SELECT
       p.id AS pharmacy_id,
       p.name AS pharmacy_name,
@@ -91,7 +99,7 @@ const getUserPharmaciesAndRoles = async (userId) => {
       id: row.role_id,
       name: String(row.role_code || row.role_name || "").toUpperCase(),
     },
-  }));
+  })); */
 };
 
 const updateLastLoginAt = async (userId) => {
@@ -107,6 +115,8 @@ const shapeUserResponse = async (user) => {
     last_name: user.last_name,
     email: user.email,
     is_super_admin: isSuperAdmin,
+    role_id: user.role_id || null,
+    role_code: user.role_code ? String(user.role_code).toUpperCase() : null,
   };
 
   if (!isSuperAdmin) {

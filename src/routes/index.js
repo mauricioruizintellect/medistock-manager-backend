@@ -3,6 +3,7 @@ import healthRoutes from "./health.routes.js";
 import medicineRoutes from "./medicine.routes.js";
 import authRoutes from "./auth.routes.js";
 import pharmacyRoutes from "./pharmacy.routes.js";
+import userRoutes from "./user.routes.js";
 
 const router = Router();
 
@@ -17,5 +18,6 @@ router.use("/health", healthRoutes);
 router.use("/medicines", medicineRoutes);
 router.use("/auth", authRoutes);
 router.use("/pharmacies", pharmacyRoutes);
+router.use("/users", userRoutes);
 
 export default router;
