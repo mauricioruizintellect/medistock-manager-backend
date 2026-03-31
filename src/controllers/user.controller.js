@@ -1,4 +1,9 @@
-import { createUser, updateUser } from "../services/user.service.js";
+import {
+  createUser,
+  getRoles,
+  getUsersByPharmacyId,
+  updateUser,
+} from "../services/user.service.js";
 
 export const createUserHandler = async (req, res, next) => {
   try {
@@ -20,6 +25,30 @@ export const updateUserHandler = async (req, res, next) => {
     res.status(200).json({
       message: "User updated successfully",
       user,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getUsersByPharmacyIdHandler = async (req, res, next) => {
+  try {
+    const users = await getUsersByPharmacyId(req.params.pharmacyId);
+
+    res.status(200).json({
+      users,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getUserUtilitiesHandler = async (_req, res, next) => {
+  try {
+    const roles = await getRoles();
+
+    res.status(200).json({
+      roles,
     });
   } catch (error) {
     next(error);

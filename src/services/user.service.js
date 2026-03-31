@@ -228,6 +228,60 @@ const getUserResponseById = async (userId) => {
   };
 };
 
+export const getUsersByPharmacyId = async (pharmacyId) => {
+  const pharmacyIdNumber = parseRequiredInt(pharmacyId, "pharmacy_id");
+
+  await ensurePharmacyExists(pharmacyIdNumber);
+
+  const [rows] = await pool.execute(
+    `
+      SELECT
+        u.id,
+        u.first_name,
+        u.last_name,
+        u.email,
+        u.phone,
+        u.status,
+        u.pharmacy_id,
+        p.name AS pharmacy_name,
+        u.role_id,
+        r.code AS role_code,
+        r.name AS role_name,
+        u.is_super_admin,
+        u.created_by,
+        u.created_at,
+        u.updated_at
+      FROM users u
+      LEFT JOIN pharmacies p ON p.id = u.pharmacy_id
+      LEFT JOIN roles r ON r.id = u.role_id
+      WHERE u.pharmacy_id = ?
+      ORDER BY u.first_name ASC, u.last_name ASC, u.id ASC
+    `,
+    [pharmacyIdNumber]
+  );
+
+  return rows.map((user) => ({
+    ...user,
+    is_super_admin: normalizeBoolean(user.is_super_admin),
+    role_code: normalizeRoleCode(user.role_code),
+  }));
+};
+
+export const getRoles = async () => {
+  const [rows] = await pool.execute(
+    `
+      SELECT id, code, name
+      FROM roles
+      ORDER BY name ASC, id ASC
+    `
+  );
+
+  return rows.map((role) => ({
+    ...role,
+    code: normalizeRoleCode(role.code),
+  }));
+};
+
 const assertPharmacyAdminCanManage = ({
   actor,
   targetRoleCode,
