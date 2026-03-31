@@ -9,12 +9,24 @@ import authPublicRoutes from "./routes/auth.public.routes.js";
 const app = express();
 
 const isDevelopment = process.env.NODE_ENV !== "production";
-const allowedOrigin = process.env.CLIENT_ORIGIN || "*";
+const defaultOrigins = isDevelopment
+  ? ["http://localhost:3000", "http://localhost:8080"]
+  : [];
+const allowedOrigins = (
+  process.env.CLIENT_ORIGIN?.split(",").map((origin) => origin.trim()) ||
+  defaultOrigins
+).filter(Boolean);
 
 app.use(helmet());
 app.use(
   cors({
-    origin: allowedOrigin,
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
   })
 );
 app.use(express.json({ limit: "1mb" }));

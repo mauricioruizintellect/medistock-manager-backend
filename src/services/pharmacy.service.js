@@ -98,29 +98,39 @@ const buildUpdatePayload = (data) => {
   return payload;
 };
 
-const getPharmacyById = async (pharmacyId) => {
+export const getPharmacyById = async (pharmacyId) => {
+  const pharmacyIdNumber = Number.parseInt(pharmacyId, 10);
+
+  if (Number.isNaN(pharmacyIdNumber) || pharmacyIdNumber <= 0) {
+    throw createHttpError(400, "Invalid pharmacy id");
+  }
+
   const [rows] = await pool.execute(
     `
       SELECT
-        id,
-        name,
-        legal_name,
-        tax_id,
-        phone,
-        email,
-        address,
-        city,
-        country,
-        status,
-        created_by,
-        updated_by,
-        created_at,
-        updated_at
-      FROM pharmacies
-      WHERE id = ?
+        p.id,
+        p.name,
+        p.legal_name,
+        p.tax_id,
+        p.phone,
+        p.email,
+        p.address,
+        p.city,
+        p.country,
+        p.status,
+        p.created_by,
+        CONCAT(creator.first_name, ' ', creator.last_name) AS created_by_name,
+        p.updated_by,
+        CONCAT(updater.first_name, ' ', updater.last_name) AS updated_by_name,
+        p.created_at,
+        p.updated_at
+      FROM pharmacies p
+      LEFT JOIN users creator ON creator.id = p.created_by
+      LEFT JOIN users updater ON updater.id = p.updated_by
+      WHERE p.id = ?
       LIMIT 1
     `,
-    [pharmacyId]
+    [pharmacyIdNumber]
   );
 
   return rows[0] || null;

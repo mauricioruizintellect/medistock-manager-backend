@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   createPharmacyHandler,
+  getPharmacyByIdHandler,
   updatePharmacyHandler,
 } from "../controllers/pharmacy.controller.js";
 import {
@@ -12,6 +13,7 @@ import {
 const router = Router();
 
 router.post("/", authMiddleware, requireAdminOrSuperAdmin, createPharmacyHandler);
+router.get("/:id", authMiddleware, getPharmacyByIdHandler);
 router.put(
   "/:id",
   authMiddleware,
