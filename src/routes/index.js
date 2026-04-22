@@ -9,6 +9,7 @@ import userBranchRoleRoutes from "./user-branch-role.routes.js";
 import productCategoryRoutes from "./product-category.routes.js";
 import productRoutes from "./product.routes.js";
 import branchProductRoutes from "./branch-product.routes.js";
+import inventoryRoutes from "./inventory.routes.js";
 import inventoryLotRoutes from "./inventory-lot.routes.js";
 import saleRoutes from "./sale.routes.js";
 
@@ -31,6 +32,7 @@ router.use("/user-branch-roles", userBranchRoleRoutes);
 router.use("/product-categories", productCategoryRoutes);
 router.use("/products", productRoutes);
 router.use("/branch-products", branchProductRoutes);
+router.use("/inventory", inventoryRoutes);
 router.use("/inventory-lots", inventoryLotRoutes);
 router.use("/sales", saleRoutes);
 
