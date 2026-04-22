@@ -363,7 +363,7 @@ export const receiveInventoryLots = async (payload, actorUserId) => {
       await insertInventoryMovement(connection, {
         branch_product_id: item.branch_product_id,
         inventory_lot_id: inventoryLotId,
-        movement_type: "purchase",
+        movement_type: "in",
         reference_type: "invoice",
         quantity: item.initial_quantity,
         previous_stock: previousStock,
