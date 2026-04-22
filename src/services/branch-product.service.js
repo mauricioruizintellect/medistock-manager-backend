@@ -389,3 +389,78 @@ export const createBranchProduct = async (data, actorUserId) => {
 
   return getBranchProductById(result.insertId);
 };
+
+export const updateBranchProduct = async (id, data, actorUserId) => {
+  const branchProductId = parseRequiredInt(id, "id");
+  const actor = await getActorContextById(actorUserId);
+  const currentBranchProduct = await getBranchProductById(branchProductId);
+
+  if (!currentBranchProduct) {
+    throw createHttpError(404, "Branch product not found");
+  }
+
+  assertPharmacyAccess({ actor, pharmacyId: currentBranchProduct.pharmacy_id });
+
+  const payload = {};
+
+  if (Object.prototype.hasOwnProperty.call(data, "sale_price")) {
+    payload.sale_price = normalizeNumber(data.sale_price, "sale_price", null);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "cost_price_default")) {
+    payload.cost_price_default = normalizeNumber(
+      data.cost_price_default,
+      "cost_price_default",
+      null
+    );
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "min_stock")) {
+    payload.min_stock = normalizeNumber(data.min_stock, "min_stock", 0);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "max_stock")) {
+    payload.max_stock = normalizeNumber(data.max_stock, "max_stock", 0);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "reorder_point")) {
+    payload.reorder_point = normalizeNumber(data.reorder_point, "reorder_point", 0);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "shelf_location")) {
+    payload.shelf_location = normalizeString(data.shelf_location);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "is_sellable")) {
+    payload.is_sellable = normalizeBoolean(data.is_sellable) ? 1 : 0;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "is_visible_in_pos")) {
+    payload.is_visible_in_pos = normalizeBoolean(data.is_visible_in_pos) ? 1 : 0;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "status")) {
+    const status = normalizeStatus(data.status, false);
+    if (!status) {
+      throw createHttpError(400, "status cannot be empty");
+    }
+    payload.status = status;
+  }
+
+  if (Object.keys(payload).length === 0) {
+    throw createHttpError(400, "No valid fields provided for update");
+  }
+
+  payload.updated_by = actor.id;
+
+  const fields = Object.keys(payload);
+  const setClause = fields.map((field) => `${field} = ?`).join(", ");
+  const values = fields.map((field) => payload[field]);
+
+  await pool.execute(`UPDATE branch_products SET ${setClause} WHERE id = ?`, [
+    ...values,
+    branchProductId,
+  ]);
+
+  return getBranchProductById(branchProductId);
+};
