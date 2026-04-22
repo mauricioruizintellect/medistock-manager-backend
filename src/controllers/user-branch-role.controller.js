@@ -1,6 +1,7 @@
 import {
   createUserBranchRole,
   deleteUserBranchRole,
+  getUserBranchRoles,
 } from "../services/user-branch-role.service.js";
 
 export const createUserBranchRoleHandler = async (req, res, next) => {
@@ -11,6 +12,16 @@ export const createUserBranchRoleHandler = async (req, res, next) => {
       message: "User branch role created successfully",
       user_branch_role: record,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getUserBranchRolesHandler = async (req, res, next) => {
+  try {
+    const result = await getUserBranchRoles(req.query, req.user.userId);
+
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

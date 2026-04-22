@@ -20,6 +20,11 @@ const parseRequiredInt = (value, fieldName) => {
   return parsed;
 };
 
+const parseOptionalInt = (value, fieldName) => {
+  if (value === undefined || value === null || value === "") return null;
+  return parseRequiredInt(value, fieldName);
+};
+
 const normalizeNumber = (value, fieldName, fallback = null) => {
   if (value === undefined || value === null || value === "") return fallback;
   const parsed = Number.parseFloat(value);
@@ -135,6 +140,14 @@ const getProductById = async (productId) => {
   return rows[0];
 };
 
+const ensurePharmacyExists = async (pharmacyId) => {
+  const [rows] = await pool.execute("SELECT id FROM pharmacies WHERE id = ? LIMIT 1", [pharmacyId]);
+
+  if (rows.length === 0) {
+    throw createHttpError(400, "Pharmacy not found");
+  }
+};
+
 const assertPharmacyAccess = ({ actor, pharmacyId }) => {
   if (actor.is_super_admin) return;
 
@@ -198,6 +211,137 @@ const getBranchProductById = async (id) => {
   );
 
   return rows[0] || null;
+};
+
+export const getBranchProducts = async (params, actorUserId) => {
+  const actor = await getActorContextById(actorUserId);
+
+  const payloadPharmacyId = parseOptionalInt(params.pharmacy_id, "pharmacy_id");
+  const branchId = parseOptionalInt(params.branch_id, "branch_id");
+  const productId = parseOptionalInt(params.product_id, "product_id");
+  const status = normalizeStatus(params.status, false);
+  const search = normalizeString(params.search);
+
+  let pharmacyId = actor.is_super_admin ? payloadPharmacyId : Number.parseInt(actor.pharmacy_id, 10);
+
+  if (payloadPharmacyId) {
+    await ensurePharmacyExists(payloadPharmacyId);
+    assertPharmacyAccess({ actor, pharmacyId: payloadPharmacyId });
+  }
+
+  if (branchId) {
+    const branch = await getBranchById(branchId);
+    assertPharmacyAccess({ actor, pharmacyId: branch.pharmacy_id });
+
+    if (pharmacyId && Number.parseInt(branch.pharmacy_id, 10) !== pharmacyId) {
+      throw createHttpError(400, "branch_id does not belong to pharmacy_id");
+    }
+
+    pharmacyId = Number.parseInt(branch.pharmacy_id, 10);
+  }
+
+  if (productId) {
+    const product = await getProductById(productId);
+    assertPharmacyAccess({ actor, pharmacyId: product.pharmacy_id });
+
+    if (pharmacyId && Number.parseInt(product.pharmacy_id, 10) !== pharmacyId) {
+      throw createHttpError(400, "product_id does not belong to pharmacy_id");
+    }
+
+    pharmacyId = Number.parseInt(product.pharmacy_id, 10);
+  }
+
+  const where = [];
+  const values = [];
+
+  if (pharmacyId) {
+    where.push("b.pharmacy_id = ?");
+    values.push(pharmacyId);
+  }
+
+  if (branchId) {
+    where.push("bp.branch_id = ?");
+    values.push(branchId);
+  }
+
+  if (productId) {
+    where.push("bp.product_id = ?");
+    values.push(productId);
+  }
+
+  if (status) {
+    where.push("bp.status = ?");
+    values.push(status);
+  }
+
+  if (search) {
+    where.push(
+      "(LOWER(p.name) LIKE LOWER(?) OR LOWER(p.sku) LIKE LOWER(?) OR LOWER(p.barcode) LIKE LOWER(?) OR LOWER(b.name) LIKE LOWER(?))"
+    );
+    const searchTerm = `%${search}%`;
+    values.push(searchTerm, searchTerm, searchTerm, searchTerm);
+  }
+
+  const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+
+  const [rows] = await pool.execute(
+    `
+      SELECT
+        bp.id,
+        bp.branch_id,
+        b.name AS branch_name,
+        b.pharmacy_id,
+        ph.name AS pharmacy_name,
+        bp.product_id,
+        p.name AS product_name,
+        p.sku,
+        p.barcode,
+        p.generic_name,
+        p.brand,
+        p.pharmaceutical_form,
+        p.presentation,
+        p.concentration,
+        p.unit_of_measure,
+        p.requires_prescription,
+        p.is_controlled_substance,
+        bp.sale_price,
+        bp.cost_price_default,
+        bp.min_stock,
+        bp.max_stock,
+        bp.reorder_point,
+        bp.current_stock,
+        bp.reserved_stock,
+        bp.shelf_location,
+        bp.is_sellable,
+        bp.is_visible_in_pos,
+        bp.status,
+        bp.created_by,
+        bp.updated_by,
+        bp.created_at,
+        bp.updated_at
+      FROM branch_products bp
+      JOIN branches b ON b.id = bp.branch_id
+      JOIN pharmacies ph ON ph.id = b.pharmacy_id
+      JOIN products p ON p.id = bp.product_id
+      ${whereClause}
+      ORDER BY ph.name ASC, b.name ASC, p.name ASC
+    `,
+    values
+  );
+
+  return {
+    pharmacy_id: pharmacyId,
+    branch_id: branchId,
+    product_id: productId,
+    total: rows.length,
+    items: rows.map((row) => ({
+      ...row,
+      requires_prescription: normalizeBoolean(row.requires_prescription),
+      is_controlled_substance: normalizeBoolean(row.is_controlled_substance),
+      is_sellable: normalizeBoolean(row.is_sellable),
+      is_visible_in_pos: normalizeBoolean(row.is_visible_in_pos),
+    })),
+  };
 };
 
 export const createBranchProduct = async (data, actorUserId) => {

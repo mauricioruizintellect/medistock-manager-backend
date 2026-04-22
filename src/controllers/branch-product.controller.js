@@ -1,4 +1,4 @@
-import { createBranchProduct } from "../services/branch-product.service.js";
+import { createBranchProduct, getBranchProducts } from "../services/branch-product.service.js";
 
 export const createBranchProductHandler = async (req, res, next) => {
   try {
@@ -8,6 +8,16 @@ export const createBranchProductHandler = async (req, res, next) => {
       message: "Branch product created successfully",
       branch_product: branchProduct,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getBranchProductsHandler = async (req, res, next) => {
+  try {
+    const result = await getBranchProducts(req.query, req.user.userId);
+
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

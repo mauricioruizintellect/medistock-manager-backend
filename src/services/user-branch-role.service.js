@@ -20,6 +20,11 @@ const parseRequiredInt = (value, fieldName) => {
   return parsed;
 };
 
+const parseOptionalInt = (value, fieldName) => {
+  if (value === undefined || value === null || value === "") return null;
+  return parseRequiredInt(value, fieldName);
+};
+
 const normalizeStatus = (value, required = false) => {
   if (value === undefined || value === null || String(value).trim() === "") {
     return required ? "active" : undefined;
@@ -103,6 +108,14 @@ const getRoleById = async (roleId) => {
   return rows[0];
 };
 
+const ensurePharmacyExists = async (pharmacyId) => {
+  const [rows] = await pool.execute("SELECT id FROM pharmacies WHERE id = ? LIMIT 1", [pharmacyId]);
+
+  if (rows.length === 0) {
+    throw createHttpError(400, "Pharmacy not found");
+  }
+};
+
 const validateAssignableRole = (role) => {
   const roleCode = normalizeRoleCode(role.code);
   if (!ALLOWED_ROLE_CODES.has(roleCode)) {
@@ -161,6 +174,14 @@ const assertPharmacyAccess = ({ actor, user, branch }) => {
   }
 };
 
+const assertActorCanAccessPharmacy = (actor, pharmacyId) => {
+  if (actor.is_super_admin) return;
+
+  if (Number.parseInt(actor.pharmacy_id, 10) !== Number.parseInt(pharmacyId, 10)) {
+    throw createHttpError(403, "PHARMACY_ADMIN can only manage records in assigned pharmacy");
+  }
+};
+
 const getUserBranchRoleById = async (id) => {
   const [rows] = await pool.execute(
     `
@@ -185,6 +206,123 @@ const getUserBranchRoleById = async (id) => {
   );
 
   return rows[0] || null;
+};
+
+export const getUserBranchRoles = async (params, actorUserId) => {
+  const actor = await getActorContextById(actorUserId);
+
+  const payloadPharmacyId = parseOptionalInt(params.pharmacy_id, "pharmacy_id");
+  const branchId = parseOptionalInt(params.branch_id, "branch_id");
+  const userId = parseOptionalInt(params.user_id, "user_id");
+  const roleId = parseOptionalInt(params.role_id, "role_id");
+  const status = normalizeStatus(params.status, false);
+
+  let pharmacyId = actor.is_super_admin ? payloadPharmacyId : Number.parseInt(actor.pharmacy_id, 10);
+
+  if (payloadPharmacyId) {
+    await ensurePharmacyExists(payloadPharmacyId);
+    assertActorCanAccessPharmacy(actor, payloadPharmacyId);
+  }
+
+  if (branchId) {
+    const branch = await getBranchById(branchId);
+    assertActorCanAccessPharmacy(actor, branch.pharmacy_id);
+
+    if (pharmacyId && Number.parseInt(branch.pharmacy_id, 10) !== pharmacyId) {
+      throw createHttpError(400, "branch_id does not belong to pharmacy_id");
+    }
+
+    pharmacyId = Number.parseInt(branch.pharmacy_id, 10);
+  }
+
+  if (userId) {
+    const user = await getUserById(userId);
+    assertActorCanAccessPharmacy(actor, user.pharmacy_id);
+
+    if (pharmacyId && Number.parseInt(user.pharmacy_id, 10) !== pharmacyId) {
+      throw createHttpError(400, "user_id does not belong to pharmacy_id");
+    }
+
+    pharmacyId = Number.parseInt(user.pharmacy_id, 10);
+  }
+
+  if (roleId) {
+    const role = await getRoleById(roleId);
+    validateAssignableRole(role);
+  }
+
+  const where = [];
+  const values = [];
+
+  if (pharmacyId) {
+    where.push("b.pharmacy_id = ?");
+    values.push(pharmacyId);
+  }
+
+  if (branchId) {
+    where.push("ubr.branch_id = ?");
+    values.push(branchId);
+  }
+
+  if (userId) {
+    where.push("ubr.user_id = ?");
+    values.push(userId);
+  }
+
+  if (roleId) {
+    where.push("ubr.role_id = ?");
+    values.push(roleId);
+  }
+
+  if (status) {
+    where.push("ubr.status = ?");
+    values.push(status);
+  }
+
+  const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+
+  const [rows] = await pool.execute(
+    `
+      SELECT
+        ubr.id,
+        ubr.user_id,
+        u.first_name,
+        u.last_name,
+        u.email AS user_email,
+        ubr.branch_id,
+        b.name AS branch_name,
+        b.pharmacy_id,
+        p.name AS pharmacy_name,
+        ubr.role_id,
+        r.code AS role_code,
+        r.name AS role_name,
+        ubr.is_default,
+        ubr.status,
+        ubr.created_at,
+        ubr.updated_at
+      FROM user_branch_roles ubr
+      JOIN users u ON u.id = ubr.user_id
+      JOIN branches b ON b.id = ubr.branch_id
+      JOIN pharmacies p ON p.id = b.pharmacy_id
+      JOIN roles r ON r.id = ubr.role_id
+      ${whereClause}
+      ORDER BY p.name ASC, b.name ASC, u.first_name ASC, u.last_name ASC, r.name ASC
+    `,
+    values
+  );
+
+  return {
+    pharmacy_id: pharmacyId,
+    branch_id: branchId,
+    user_id: userId,
+    role_id: roleId,
+    total: rows.length,
+    items: rows.map((row) => ({
+      ...row,
+      role_code: normalizeRoleCode(row.role_code),
+      is_default: normalizeBoolean(row.is_default),
+    })),
+  };
 };
 
 const getUserBranchRoleResponseById = async (id) => {
