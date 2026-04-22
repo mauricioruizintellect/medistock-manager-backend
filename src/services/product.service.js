@@ -137,15 +137,16 @@ const ensureCategoryBelongsToPharmacy = async (categoryId, pharmacyId) => {
   }
 };
 
-const ensureUniqueSkuInPharmacy = async (pharmacyId, sku) => {
+const ensureUniqueSkuInPharmacy = async (pharmacyId, sku, excludedId = null) => {
   const [rows] = await pool.execute(
     `
       SELECT id
       FROM products
       WHERE pharmacy_id = ? AND LOWER(sku) = LOWER(?)
+      ${excludedId ? "AND id <> ?" : ""}
       LIMIT 1
     `,
-    [pharmacyId, sku]
+    excludedId ? [pharmacyId, sku, excludedId] : [pharmacyId, sku]
   );
 
   if (rows.length > 0) {
@@ -190,6 +191,14 @@ const getProductById = async (id) => {
   );
 
   return rows[0] || null;
+};
+
+const assertProductAccess = (actor, product) => {
+  if (actor.is_super_admin) return;
+
+  if (Number.parseInt(actor.pharmacy_id, 10) !== Number.parseInt(product.pharmacy_id, 10)) {
+    throw createHttpError(403, "You can only manage products from your assigned pharmacy");
+  }
 };
 
 export const createProduct = async (data, actorUserId) => {
@@ -243,6 +252,20 @@ export const createProduct = async (data, actorUserId) => {
   );
 
   return getProductById(result.insertId);
+};
+
+export const getProductByIdForActor = async (id, actorUserId) => {
+  const productId = parseRequiredInt(id, "id");
+  const actor = await getActorContextById(actorUserId);
+  const product = await getProductById(productId);
+
+  if (!product) {
+    throw createHttpError(404, "Product not found");
+  }
+
+  assertProductAccess(actor, product);
+
+  return product;
 };
 
 export const getProductsByPharmacy = async (params, actorUserId) => {
@@ -299,4 +322,108 @@ export const getProductsByPharmacy = async (params, actorUserId) => {
     total: rows.length,
     items: rows,
   };
+};
+
+export const updateProduct = async (id, data, actorUserId) => {
+  const productId = parseRequiredInt(id, "id");
+  const actor = await getActorContextById(actorUserId);
+  const currentProduct = await getProductById(productId);
+
+  if (!currentProduct) {
+    throw createHttpError(404, "Product not found");
+  }
+
+  assertProductAccess(actor, currentProduct);
+
+  if (Object.prototype.hasOwnProperty.call(data, "pharmacy_id")) {
+    const payloadPharmacyId = parseRequiredInt(data.pharmacy_id, "pharmacy_id");
+    if (payloadPharmacyId !== Number.parseInt(currentProduct.pharmacy_id, 10)) {
+      throw createHttpError(400, "Product pharmacy cannot be changed");
+    }
+  }
+
+  const payload = {};
+  const pharmacyId = Number.parseInt(currentProduct.pharmacy_id, 10);
+
+  if (Object.prototype.hasOwnProperty.call(data, "category_id")) {
+    const categoryId = parseOptionalInt(data.category_id, "category_id");
+    await ensureCategoryBelongsToPharmacy(categoryId, pharmacyId);
+    payload.category_id = categoryId;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "sku")) {
+    const sku = normalizeRequiredString(data.sku, "sku");
+    await ensureUniqueSkuInPharmacy(pharmacyId, sku, productId);
+    payload.sku = sku;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "barcode")) {
+    payload.barcode = normalizeString(data.barcode);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "name")) {
+    payload.name = normalizeRequiredString(data.name, "name");
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "generic_name")) {
+    payload.generic_name = normalizeString(data.generic_name);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "description")) {
+    payload.description = normalizeString(data.description);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "brand")) {
+    payload.brand = normalizeString(data.brand);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "pharmaceutical_form")) {
+    payload.pharmaceutical_form = normalizeString(data.pharmaceutical_form);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "presentation")) {
+    payload.presentation = normalizeString(data.presentation);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "concentration")) {
+    payload.concentration = normalizeString(data.concentration);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "unit_of_measure")) {
+    payload.unit_of_measure = normalizeString(data.unit_of_measure);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "requires_prescription")) {
+    payload.requires_prescription = normalizeBoolean(data.requires_prescription) ? 1 : 0;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "is_controlled_substance")) {
+    payload.is_controlled_substance = normalizeBoolean(data.is_controlled_substance) ? 1 : 0;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "tax_rate")) {
+    payload.tax_rate = normalizeDecimal(data.tax_rate, "tax_rate");
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, "status")) {
+    const status = normalizeStatus(data.status, false);
+    if (!status) {
+      throw createHttpError(400, "status cannot be empty");
+    }
+    payload.status = status;
+  }
+
+  if (Object.keys(payload).length === 0) {
+    throw createHttpError(400, "No valid fields provided for update");
+  }
+
+  payload.updated_by = actor.id;
+
+  const fields = Object.keys(payload);
+  const setClause = fields.map((field) => `${field} = ?`).join(", ");
+  const values = fields.map((field) => payload[field]);
+
+  await pool.execute(`UPDATE products SET ${setClause} WHERE id = ?`, [...values, productId]);
+
+  return getProductById(productId);
 };
