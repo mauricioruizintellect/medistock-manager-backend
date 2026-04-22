@@ -95,7 +95,7 @@ const getActorContext = async (connection, actorUserId) => {
   if (!canManage) {
     throw createHttpError(
       403,
-      "Only SUPER_ADMIN, PHARMACY_ADMIN or BRANCH_ADMIN can perform initial load"
+      "Only SUPER_ADMIN, PHARMACY_ADMIN or BRANCH_ADMIN can manage inventory lots"
     );
   }
 
@@ -138,6 +138,34 @@ const normalizeItem = (rawItem, index) => {
   };
 };
 
+const normalizeReceiveItem = (rawItem, index) => {
+  if (!rawItem || typeof rawItem !== "object" || Array.isArray(rawItem)) {
+    throw createHttpError(400, `Item at index ${index} must be an object`);
+  }
+
+  const branchProductId = parseRequiredInt(rawItem.branch_product_id, "branch_product_id");
+  const lotNumber = normalizeString(rawItem.lot_number);
+  if (!lotNumber) {
+    throw createHttpError(400, "lot_number is required");
+  }
+
+  const quantity = parsePositiveNumber(rawItem.quantity, "quantity", false);
+
+  return {
+    branch_product_id: branchProductId,
+    lot_number: lotNumber,
+    expiration_date: parseExpirationDate(rawItem.expiration_date),
+    purchase_price: parsePositiveNumber(rawItem.purchase_price, "purchase_price", true),
+    initial_quantity: quantity,
+    current_quantity: quantity,
+    received_at: rawItem.received_at || undefined,
+    supplier_name: normalizeString(rawItem.supplier_name),
+    invoice_reference: normalizeString(rawItem.invoice_reference),
+    status: rawItem.status || undefined,
+    notes: normalizeString(rawItem.notes),
+  };
+};
+
 const normalizePayload = (payload) => {
   if (Array.isArray(payload)) {
     if (payload.length === 0) {
@@ -153,6 +181,24 @@ const normalizePayload = (payload) => {
   return {
     isBulk: false,
     items: [normalizeItem(payload, 0)],
+  };
+};
+
+const normalizeReceivePayload = (payload) => {
+  if (Array.isArray(payload)) {
+    if (payload.length === 0) {
+      throw createHttpError(400, "Payload array cannot be empty");
+    }
+
+    return {
+      isBulk: true,
+      items: payload.map((item, index) => normalizeReceiveItem(item, index)),
+    };
+  }
+
+  return {
+    isBulk: false,
+    items: [normalizeReceiveItem(payload, 0)],
   };
 };
 
@@ -176,6 +222,19 @@ const buildInventoryLotPayload = (item, actorUserId) => {
   return payload;
 };
 
+const assertCanManageBranchProductInventory = (actor, branchProduct) => {
+  if (actor.is_super_admin) return;
+
+  if (
+    Number.parseInt(actor.pharmacy_id, 10) !== Number.parseInt(branchProduct.pharmacy_id, 10)
+  ) {
+    throw createHttpError(
+      403,
+      `You can only load inventory for your assigned pharmacy (branch_product_id ${branchProduct.id})`
+    );
+  }
+};
+
 export const initialLoadInventoryLots = async (payload, actorUserId) => {
   const normalized = normalizePayload(payload);
   const connection = await pool.getConnection();
@@ -193,15 +252,7 @@ export const initialLoadInventoryLots = async (payload, actorUserId) => {
         throw createHttpError(400, `branch_product_id ${item.branch_product_id} does not exist`);
       }
 
-      if (
-        !actor.is_super_admin &&
-        Number.parseInt(actor.pharmacy_id, 10) !== Number.parseInt(branchProduct.pharmacy_id, 10)
-      ) {
-        throw createHttpError(
-          403,
-          `You can only load inventory for your assigned pharmacy (branch_product_id ${item.branch_product_id})`
-        );
-      }
+      assertCanManageBranchProductInventory(actor, branchProduct);
 
       const duplicateLot = await findLotByBranchProductAndLotNumber(
         connection,
@@ -259,6 +310,89 @@ export const initialLoadInventoryLots = async (payload, actorUserId) => {
 
     if (error.code === "ER_DUP_ENTRY" && !error.status) {
       throw createHttpError(409, "Duplicate record detected while processing initial load");
+    }
+
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+export const receiveInventoryLots = async (payload, actorUserId) => {
+  const normalized = normalizeReceivePayload(payload);
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const actor = await getActorContext(connection, actorUserId);
+    const createdItems = [];
+
+    for (const item of normalized.items) {
+      const branchProduct = await findBranchProductById(connection, item.branch_product_id);
+
+      if (!branchProduct) {
+        throw createHttpError(400, `branch_product_id ${item.branch_product_id} does not exist`);
+      }
+
+      assertCanManageBranchProductInventory(actor, branchProduct);
+
+      const duplicateLot = await findLotByBranchProductAndLotNumber(
+        connection,
+        item.branch_product_id,
+        item.lot_number
+      );
+
+      if (duplicateLot) {
+        throw createHttpError(
+          409,
+          `lot_number '${item.lot_number}' already exists for branch_product_id ${item.branch_product_id}`
+        );
+      }
+
+      const inventoryLotId = await insertInventoryLot(
+        connection,
+        buildInventoryLotPayload(item, actor.id)
+      );
+
+      const previousStock = Number.parseFloat(branchProduct.current_stock || 0);
+      const newStock = previousStock + item.initial_quantity;
+
+      await updateBranchProductCurrentStock(connection, item.branch_product_id, newStock, actor.id);
+
+      await insertInventoryMovement(connection, {
+        branch_product_id: item.branch_product_id,
+        inventory_lot_id: inventoryLotId,
+        movement_type: "purchase",
+        reference_type: "invoice",
+        quantity: item.initial_quantity,
+        previous_stock: previousStock,
+        new_stock: newStock,
+        unit_cost: item.purchase_price,
+        notes: item.notes || "Ingreso de nuevo lote",
+        moved_by: actor.id,
+      });
+
+      createdItems.push({
+        inventory_lot_id: inventoryLotId,
+        branch_product_id: item.branch_product_id,
+        lot_number: item.lot_number,
+        quantity_received: item.initial_quantity,
+      });
+    }
+
+    await connection.commit();
+
+    return {
+      mode: normalized.isBulk ? "bulk" : "single",
+      total_processed: createdItems.length,
+      items: createdItems,
+    };
+  } catch (error) {
+    await connection.rollback();
+
+    if (error.code === "ER_DUP_ENTRY" && !error.status) {
+      throw createHttpError(409, "Duplicate record detected while receiving inventory lots");
     }
 
     throw error;
