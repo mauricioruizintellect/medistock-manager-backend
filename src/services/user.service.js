@@ -314,7 +314,7 @@ const assertPharmacyAdminCanManage = ({
 
 const buildCreatePayload = async (data, actor) => {
   const roleId = parseRequiredInt(data.role_id, "role_id");
-  const pharmacyId = parseOptionalInt(data.pharmacy_id, "pharmacy_id");
+  const payloadPharmacyId = parseOptionalInt(data.pharmacy_id, "pharmacy_id");
   const role = await getRoleById(roleId);
 
   if (!role) {
@@ -323,14 +323,24 @@ const buildCreatePayload = async (data, actor) => {
 
   const roleCode = normalizeRoleCode(role.code);
   const isSuperAdmin = normalizeBoolean(data.is_super_admin);
+  let pharmacyId = payloadPharmacyId;
 
   if (!actor.is_super_admin) {
     assertPharmacyAdminCanManage({
       actor,
       targetRoleCode: roleCode,
-      targetPharmacyId: pharmacyId,
+      targetPharmacyId: payloadPharmacyId || actor.pharmacy_id,
       targetIsSuperAdmin: isSuperAdmin,
     });
+
+    if (
+      payloadPharmacyId &&
+      Number.parseInt(payloadPharmacyId, 10) !== Number.parseInt(actor.pharmacy_id, 10)
+    ) {
+      throw createHttpError(403, "PHARMACY_ADMIN can only create users in their assigned pharmacy");
+    }
+
+    pharmacyId = Number.parseInt(actor.pharmacy_id, 10);
   }
 
   await ensurePharmacyExists(pharmacyId);

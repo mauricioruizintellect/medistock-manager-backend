@@ -1,4 +1,4 @@
-import { createBranch, updateBranch } from "../services/branch.service.js";
+import { createBranch, getBranches, updateBranch } from "../services/branch.service.js";
 
 export const createBranchHandler = async (req, res, next) => {
   try {
@@ -8,6 +8,16 @@ export const createBranchHandler = async (req, res, next) => {
       message: "Branch created successfully",
       branch,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getBranchesHandler = async (req, res, next) => {
+  try {
+    const result = await getBranches(req.query, req.user.userId);
+
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

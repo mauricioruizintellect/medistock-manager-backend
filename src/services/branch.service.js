@@ -226,6 +226,81 @@ export const createBranch = async (data, actorUserId) => {
   return getBranchById(result.insertId);
 };
 
+export const getBranches = async (params, actorUserId) => {
+  const actor = await getActorContextById(actorUserId);
+  const payloadPharmacyId = parseOptionalInt(params.pharmacy_id, "pharmacy_id");
+  const status = normalizeStatus(params.status, false);
+  const search = normalizeString(params.search);
+
+  let pharmacyId = null;
+  if (actor.is_super_admin) {
+    pharmacyId = payloadPharmacyId;
+    if (pharmacyId) {
+      await ensurePharmacyExists(pharmacyId);
+    }
+  } else {
+    pharmacyId = Number.parseInt(actor.pharmacy_id, 10);
+    if (payloadPharmacyId && payloadPharmacyId !== pharmacyId) {
+      throw createHttpError(403, "PHARMACY_ADMIN can only view branches of assigned pharmacy");
+    }
+  }
+
+  const where = [];
+  const values = [];
+
+  if (pharmacyId) {
+    where.push("b.pharmacy_id = ?");
+    values.push(pharmacyId);
+  }
+
+  if (status) {
+    where.push("b.status = ?");
+    values.push(status);
+  }
+
+  if (search) {
+    where.push(
+      "(LOWER(b.name) LIKE LOWER(?) OR LOWER(b.code) LIKE LOWER(?) OR LOWER(b.city) LIKE LOWER(?))"
+    );
+    const searchTerm = `%${search}%`;
+    values.push(searchTerm, searchTerm, searchTerm);
+  }
+
+  const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+
+  const [rows] = await pool.execute(
+    `
+      SELECT
+        b.id,
+        b.pharmacy_id,
+        p.name AS pharmacy_name,
+        b.code,
+        b.name,
+        b.phone,
+        b.email,
+        b.address,
+        b.city,
+        b.status,
+        b.is_main,
+        b.created_by,
+        b.updated_by,
+        b.created_at,
+        b.updated_at
+      FROM branches b
+      JOIN pharmacies p ON p.id = b.pharmacy_id
+      ${whereClause}
+      ORDER BY p.name ASC, b.is_main DESC, b.name ASC
+    `,
+    values
+  );
+
+  return {
+    pharmacy_id: pharmacyId,
+    total: rows.length,
+    items: rows,
+  };
+};
+
 export const updateBranch = async (branchId, data, actorUserId) => {
   const targetBranchId = Number.parseInt(branchId, 10);
   if (Number.isNaN(targetBranchId) || targetBranchId <= 0) {
