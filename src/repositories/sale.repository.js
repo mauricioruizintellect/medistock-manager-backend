@@ -105,6 +105,7 @@ export const findBranchProductForUpdate = async (connection, branchProductId) =>
         bp.branch_id,
         bp.status,
         bp.current_stock,
+        bp.is_sellable,
         p.id AS product_id,
         p.name AS product_name,
         p.sku,
@@ -189,4 +190,68 @@ export const insertInventoryMovement = async (connection, payload) => {
     `INSERT INTO inventory_movements (${fields.join(", ")}) VALUES (${placeholders})`,
     values
   );
+};
+
+export const findSaleById = async (connection, saleId) => {
+  const [rows] = await connection.execute(
+    `
+      SELECT
+        s.id,
+        s.pharmacy_id,
+        s.branch_id,
+        s.cashier_user_id,
+        s.user_id,
+        s.sale_number,
+        s.sequence_number,
+        s.customer_name,
+        s.customer_document,
+        s.subtotal,
+        s.discount_amount,
+        s.discount_type,
+        s.discount_value,
+        s.tax_amount,
+        s.total,
+        s.total_amount,
+        s.payment_method,
+        s.payment_status,
+        s.sale_status,
+        s.status,
+        s.notes,
+        s.created_at
+      FROM sales s
+      WHERE s.id = ?
+      LIMIT 1
+    `,
+    [saleId]
+  );
+
+  return rows[0] || null;
+};
+
+export const findSaleItemsBySaleId = async (connection, saleId) => {
+  const [rows] = await connection.execute(
+    `
+      SELECT
+        sd.id,
+        sd.sale_id,
+        sd.branch_product_id,
+        sd.product_id,
+        sd.product_name,
+        sd.sku,
+        sd.quantity,
+        sd.unit_price,
+        sd.discount_amount,
+        sd.tax_rate,
+        sd.tax_amount,
+        sd.line_total,
+        sd.total_price,
+        sd.requires_prescription
+      FROM sale_details sd
+      WHERE sd.sale_id = ?
+      ORDER BY sd.id ASC
+    `,
+    [saleId]
+  );
+
+  return rows;
 };

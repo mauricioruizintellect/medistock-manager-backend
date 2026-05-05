@@ -1,7 +1,8 @@
 import pool from "../config/database.js";
 
 const ALLOWED_STATUS = new Set(["active", "inactive"]);
-const ALLOWED_ROLE_CODES = new Set(["PHARMACY_ADMIN", "BRANCH_ADMIN"]);
+const ALLOWED_READ_ROLE_CODES = new Set(["PHARMACY_ADMIN", "BRANCH_ADMIN", "CASHIER"]);
+const ALLOWED_MANAGE_ROLE_CODES = new Set(["PHARMACY_ADMIN", "BRANCH_ADMIN"]);
 
 const createHttpError = (status, message) => {
   const error = new Error(message);
@@ -57,7 +58,20 @@ const normalizeStatus = (value, required = false) => {
   return normalized;
 };
 
-const getActorContextById = async (userId) => {
+const parseOptionalBoolean = (value, fieldName) => {
+  if (value === undefined || value === null || value === "") return undefined;
+
+  if (value === true || value === false) return value;
+  if (value === 1 || value === 0) return Boolean(value);
+
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === "true" || normalized === "1") return true;
+  if (normalized === "false" || normalized === "0") return false;
+
+  throw createHttpError(400, `${fieldName} must be a boolean value`);
+};
+
+const getActorContextById = async (userId, mode = "manage") => {
   const [rows] = await pool.execute(
     `
       SELECT
@@ -89,11 +103,14 @@ const getActorContextById = async (userId) => {
     role_code: normalizeRoleCode(actor.role_code),
   };
 
-  const canManage = normalized.is_super_admin || ALLOWED_ROLE_CODES.has(normalized.role_code);
-  if (!canManage) {
+  const allowedRoleCodes = mode === "read" ? ALLOWED_READ_ROLE_CODES : ALLOWED_MANAGE_ROLE_CODES;
+  const canProceed = normalized.is_super_admin || allowedRoleCodes.has(normalized.role_code);
+  if (!canProceed) {
     throw createHttpError(
       403,
-      "Only SUPER_ADMIN, PHARMACY_ADMIN or BRANCH_ADMIN can manage branch products"
+      mode === "read"
+        ? "Only SUPER_ADMIN, PHARMACY_ADMIN, BRANCH_ADMIN or CASHIER can view branch products"
+        : "Only SUPER_ADMIN, PHARMACY_ADMIN or BRANCH_ADMIN can manage branch products"
     );
   }
 
@@ -102,6 +119,20 @@ const getActorContextById = async (userId) => {
   }
 
   return normalized;
+};
+
+const getActiveAssignedBranchIds = async (userId) => {
+  const [rows] = await pool.execute(
+    `
+      SELECT branch_id
+      FROM user_branch_roles
+      WHERE user_id = ? AND status = 'active'
+      ORDER BY is_default DESC, branch_id ASC
+    `,
+    [userId]
+  );
+
+  return rows.map((row) => Number.parseInt(row.branch_id, 10)).filter((value) => Number.isInteger(value));
 };
 
 const getBranchById = async (branchId) => {
@@ -214,15 +245,33 @@ const getBranchProductById = async (id) => {
 };
 
 export const getBranchProducts = async (params, actorUserId) => {
-  const actor = await getActorContextById(actorUserId);
+  const actor = await getActorContextById(actorUserId, "read");
 
   const payloadPharmacyId = parseOptionalInt(params.pharmacy_id, "pharmacy_id");
   const branchId = parseOptionalInt(params.branch_id, "branch_id");
   const productId = parseOptionalInt(params.product_id, "product_id");
   const status = normalizeStatus(params.status, false);
   const search = normalizeString(params.search);
+  const isVisibleInPos = parseOptionalBoolean(params.is_visible_in_pos, "is_visible_in_pos");
+  const isSellable = parseOptionalBoolean(params.is_sellable, "is_sellable");
+  const hasStock = parseOptionalBoolean(params.has_stock, "has_stock");
+  const restrictToAssignedBranches =
+    !actor.is_super_admin && (actor.role_code === "CASHIER" || actor.role_code === "BRANCH_ADMIN");
+  const assignedBranchIds = restrictToAssignedBranches
+    ? await getActiveAssignedBranchIds(actor.id)
+    : [];
 
   let pharmacyId = actor.is_super_admin ? payloadPharmacyId : Number.parseInt(actor.pharmacy_id, 10);
+
+  if (restrictToAssignedBranches && assignedBranchIds.length === 0) {
+    return {
+      pharmacy_id: pharmacyId,
+      branch_id: branchId,
+      product_id: productId,
+      total: 0,
+      items: [],
+    };
+  }
 
   if (payloadPharmacyId) {
     await ensurePharmacyExists(payloadPharmacyId);
@@ -232,6 +281,10 @@ export const getBranchProducts = async (params, actorUserId) => {
   if (branchId) {
     const branch = await getBranchById(branchId);
     assertPharmacyAccess({ actor, pharmacyId: branch.pharmacy_id });
+
+     if (restrictToAssignedBranches && !assignedBranchIds.includes(Number.parseInt(branch.id, 10))) {
+      throw createHttpError(403, "You can only view branch products from your assigned branches");
+    }
 
     if (pharmacyId && Number.parseInt(branch.pharmacy_id, 10) !== pharmacyId) {
       throw createHttpError(400, "branch_id does not belong to pharmacy_id");
@@ -274,6 +327,25 @@ export const getBranchProducts = async (params, actorUserId) => {
     values.push(status);
   }
 
+  if (isVisibleInPos !== undefined) {
+    where.push("bp.is_visible_in_pos = ?");
+    values.push(isVisibleInPos ? 1 : 0);
+  }
+
+  if (isSellable !== undefined) {
+    where.push("bp.is_sellable = ?");
+    values.push(isSellable ? 1 : 0);
+  }
+
+  if (hasStock !== undefined) {
+    where.push(hasStock ? "bp.current_stock > 0" : "bp.current_stock <= 0");
+  }
+
+  if (restrictToAssignedBranches && !branchId) {
+    where.push(`bp.branch_id IN (${assignedBranchIds.map(() => "?").join(", ")})`);
+    values.push(...assignedBranchIds);
+  }
+
   if (search) {
     where.push(
       "(LOWER(p.name) LIKE LOWER(?) OR LOWER(p.sku) LIKE LOWER(?) OR LOWER(p.barcode) LIKE LOWER(?) OR LOWER(b.name) LIKE LOWER(?))"
@@ -302,6 +374,7 @@ export const getBranchProducts = async (params, actorUserId) => {
         p.presentation,
         p.concentration,
         p.unit_of_measure,
+        p.tax_rate,
         p.requires_prescription,
         p.is_controlled_substance,
         bp.sale_price,

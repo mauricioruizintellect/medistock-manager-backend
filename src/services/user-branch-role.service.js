@@ -46,7 +46,7 @@ const normalizeIsDefault = (value, required = false) => {
   return normalizeBoolean(value) ? 1 : 0;
 };
 
-const getActorContextById = async (userId) => {
+const getActorContextById = async (userId, mode = "manage") => {
   const [rows] = await pool.execute(
     `
       SELECT
@@ -77,6 +77,14 @@ const getActorContextById = async (userId) => {
     is_super_admin: normalizeBoolean(actor.is_super_admin),
     role_code: normalizeRoleCode(actor.role_code),
   };
+
+  if (mode === "read") {
+    if (!normalized.is_super_admin && !normalized.pharmacy_id) {
+      throw createHttpError(403, "User has no assigned pharmacy");
+    }
+
+    return normalized;
+  }
 
   const isAllowed = normalized.is_super_admin || normalized.role_code === "PHARMACY_ADMIN";
   if (!isAllowed) {
@@ -209,15 +217,24 @@ const getUserBranchRoleById = async (id) => {
 };
 
 export const getUserBranchRoles = async (params, actorUserId) => {
-  const actor = await getActorContextById(actorUserId);
+  const actor = await getActorContextById(actorUserId, "read");
+  const canManageAssignments = actor.is_super_admin || actor.role_code === "PHARMACY_ADMIN";
 
   const payloadPharmacyId = parseOptionalInt(params.pharmacy_id, "pharmacy_id");
   const branchId = parseOptionalInt(params.branch_id, "branch_id");
-  const userId = parseOptionalInt(params.user_id, "user_id");
+  let userId = parseOptionalInt(params.user_id, "user_id");
   const roleId = parseOptionalInt(params.role_id, "role_id");
   const status = normalizeStatus(params.status, false);
 
   let pharmacyId = actor.is_super_admin ? payloadPharmacyId : Number.parseInt(actor.pharmacy_id, 10);
+
+  if (!canManageAssignments) {
+    if (userId && userId !== actor.id) {
+      throw createHttpError(403, "You can only view your own branch assignments");
+    }
+
+    userId = actor.id;
+  }
 
   if (payloadPharmacyId) {
     await ensurePharmacyExists(payloadPharmacyId);

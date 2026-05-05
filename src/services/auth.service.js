@@ -79,6 +79,31 @@ const getUserById = async (userId) => {
   return rows[0] || null;
 };
 
+const getDefaultBranchAssignment = async (userId) => {
+  const [rows] = await pool.execute(
+    `
+      SELECT
+        ubr.branch_id,
+        b.name AS branch_name,
+        b.pharmacy_id,
+        ubr.role_id,
+        r.code AS role_code,
+        r.name AS role_name,
+        ubr.is_default
+      FROM user_branch_roles ubr
+      JOIN branches b ON b.id = ubr.branch_id
+      LEFT JOIN roles r ON r.id = ubr.role_id
+      WHERE ubr.user_id = ?
+        AND ubr.status = 'active'
+      ORDER BY ubr.is_default DESC, ubr.id ASC
+      LIMIT 1
+    `,
+    [userId]
+  );
+
+  return rows[0] || null;
+};
+
 const getUserPharmaciesAndRoles = async (userId) => {
   /* const query = `
     SELECT
@@ -112,6 +137,7 @@ const updateLastLoginAt = async (userId) => {
 
 const shapeUserResponse = async (user) => {
   const isSuperAdmin = normalizeBoolean(user.is_super_admin);
+  const defaultBranchAssignment = await getDefaultBranchAssignment(user.id);
 
   const userData = {
     id: user.id,
@@ -122,7 +148,23 @@ const shapeUserResponse = async (user) => {
     role_id: user.role_id || null,
     role_code: user.role_code ? String(user.role_code).toUpperCase() : null,
     role_name: user.role_name ? String(user.role_name).toUpperCase() : null,
-    pharmacy_id : user.pharmacy_id ? user.pharmacy_id : null
+    pharmacy_id: user.pharmacy_id ? user.pharmacy_id : null,
+    default_branch_id: defaultBranchAssignment?.branch_id ?? null,
+    default_branch: defaultBranchAssignment
+      ? {
+          id: defaultBranchAssignment.branch_id,
+          name: defaultBranchAssignment.branch_name,
+          pharmacy_id: defaultBranchAssignment.pharmacy_id,
+          role_id: defaultBranchAssignment.role_id,
+          role_code: defaultBranchAssignment.role_code
+            ? String(defaultBranchAssignment.role_code).toUpperCase()
+            : null,
+          role_name: defaultBranchAssignment.role_name
+            ? String(defaultBranchAssignment.role_name).toUpperCase()
+            : null,
+          is_default: normalizeBoolean(defaultBranchAssignment.is_default),
+        }
+      : null,
   };
 
   if (!isSuperAdmin) {
