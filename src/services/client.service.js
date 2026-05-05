@@ -20,6 +20,11 @@ const normalizeString = (value) => {
   return normalized === "" ? null : normalized;
 };
 
+const normalizeNullableString = (value) => {
+  const normalized = normalizeString(value);
+  return normalized === undefined ? null : normalized;
+};
+
 const normalizeRequiredString = (value, fieldLabel) => {
   const normalized = normalizeString(value);
   if (!normalized) {
@@ -42,6 +47,11 @@ const normalizeEmail = (value, required = false) => {
   }
 
   return normalized;
+};
+
+const normalizeNullableEmail = (value) => {
+  const normalized = normalizeEmail(value);
+  return normalized === undefined ? null : normalized;
 };
 
 const normalizeStatus = (value, required = false) => {
@@ -299,12 +309,12 @@ const buildCreatePayload = async (data, actor) => {
   const payload = {
     pharmacy_id: pharmacyId,
     first_name: normalizeRequiredString(data.first_name, "first_name"),
-    last_name: normalizeString(data.last_name),
-    document_number: normalizeString(data.document_number),
-    phone: normalizeString(data.phone),
-    email: normalizeEmail(data.email),
-    address: normalizeString(data.address),
-    notes: normalizeString(data.notes),
+    last_name: normalizeNullableString(data.last_name),
+    document_number: normalizeNullableString(data.document_number),
+    phone: normalizeNullableString(data.phone),
+    email: normalizeNullableEmail(data.email),
+    address: normalizeNullableString(data.address),
+    notes: normalizeNullableString(data.notes),
     status: normalizeStatus(data.status, true),
     created_by: actor.id,
     updated_by: actor.id,
@@ -382,9 +392,9 @@ export const getClients = async (params, actorUserId) => {
       WHERE ${where.join(" AND ")}
       ${searchClause.sql}
       ORDER BY c.first_name ASC, c.last_name ASC, c.id ASC
-      LIMIT ?
+      LIMIT ${limit}
     `,
-    [...values, limit]
+    values
   );
 
   return {
@@ -438,27 +448,27 @@ export const updateClient = async (id, data, actorUserId) => {
   }
 
   if (Object.prototype.hasOwnProperty.call(data, "last_name")) {
-    payload.last_name = normalizeString(data.last_name);
+    payload.last_name = normalizeNullableString(data.last_name);
   }
 
   if (Object.prototype.hasOwnProperty.call(data, "document_number")) {
-    payload.document_number = normalizeString(data.document_number);
+    payload.document_number = normalizeNullableString(data.document_number);
   }
 
   if (Object.prototype.hasOwnProperty.call(data, "phone")) {
-    payload.phone = normalizeString(data.phone);
+    payload.phone = normalizeNullableString(data.phone);
   }
 
   if (Object.prototype.hasOwnProperty.call(data, "email")) {
-    payload.email = normalizeEmail(data.email);
+    payload.email = normalizeNullableEmail(data.email);
   }
 
   if (Object.prototype.hasOwnProperty.call(data, "address")) {
-    payload.address = normalizeString(data.address);
+    payload.address = normalizeNullableString(data.address);
   }
 
   if (Object.prototype.hasOwnProperty.call(data, "notes")) {
-    payload.notes = normalizeString(data.notes);
+    payload.notes = normalizeNullableString(data.notes);
   }
 
   if (Object.prototype.hasOwnProperty.call(data, "status")) {
