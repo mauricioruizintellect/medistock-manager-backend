@@ -12,6 +12,7 @@ import branchProductRoutes from "./branch-product.routes.js";
 import inventoryRoutes from "./inventory.routes.js";
 import inventoryLotRoutes from "./inventory-lot.routes.js";
 import saleRoutes from "./sale.routes.js";
+import clientRoutes from "./client.routes.js";
 
 const router = Router();
 
@@ -35,5 +36,6 @@ router.use("/branch-products", branchProductRoutes);
 router.use("/inventory", inventoryRoutes);
 router.use("/inventory-lots", inventoryLotRoutes);
 router.use("/sales", saleRoutes);
+router.use("/clients", clientRoutes);
 
 export default router;

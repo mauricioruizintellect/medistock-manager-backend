@@ -32,6 +32,27 @@ export const findBranchById = async (connection, branchId) => {
   return rows[0] || null;
 };
 
+export const findClientById = async (connection, clientId) => {
+  const [rows] = await connection.execute(
+    `
+      SELECT
+        id,
+        pharmacy_id,
+        first_name,
+        last_name,
+        TRIM(CONCAT(first_name, ' ', COALESCE(last_name, ''))) AS full_name,
+        document_number,
+        status
+      FROM clients
+      WHERE id = ?
+      LIMIT 1
+    `,
+    [clientId]
+  );
+
+  return rows[0] || null;
+};
+
 export const hasActiveBranchAccess = async (connection, userId, branchId) => {
   const [rows] = await connection.execute(
     `
@@ -200,6 +221,7 @@ export const findSaleById = async (connection, saleId) => {
         s.pharmacy_id,
         s.branch_id,
         s.cashier_user_id,
+        s.client_id,
         s.user_id,
         s.sale_number,
         s.sequence_number,

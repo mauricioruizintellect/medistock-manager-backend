@@ -3,6 +3,7 @@ import {
   findUserContextById,
   findBranchById,
   hasActiveBranchAccess,
+  findClientById,
   insertSale,
   insertSaleDetail,
   insertSaleDetailLot,
@@ -37,6 +38,11 @@ const parseRequiredInt = (value, fieldName) => {
     throw createHttpError(400, `${fieldName} is required and must be a positive integer`);
   }
   return parsed;
+};
+
+const parseOptionalInt = (value, fieldName) => {
+  if (value === undefined || value === null || value === "") return null;
+  return parseRequiredInt(value, fieldName);
 };
 
 const parsePositiveNumber = (value, fieldName, allowZero = false) => {
@@ -218,6 +224,7 @@ const normalizeSalePayload = (payload) => {
 
   return {
     branch_id: parseRequiredInt(payload.branch_id, "branch_id"),
+    client_id: parseOptionalInt(payload.client_id, "client_id"),
     customer_name: normalizeString(payload.customer_name),
     customer_document: normalizeString(payload.customer_document),
     payment_method: normalizePaymentMethod(payload.payment_method),
@@ -269,6 +276,7 @@ const assertUserCanOperateBranch = async (connection, actor, branch) => {
 
 const mapSaleSummary = (sale) => ({
   id: Number.parseInt(sale.id, 10),
+  client_id: sale.client_id ? Number.parseInt(sale.client_id, 10) : null,
   ticket_number: sale.sale_number,
   subtotal: toNumber(sale.subtotal),
   discount_amount: toNumber(sale.discount_amount),
@@ -311,6 +319,23 @@ export const createSale = async (payload, actorUserId) => {
     }
 
     await assertUserCanOperateBranch(connection, actor, branch);
+
+    let selectedClient = null;
+    if (normalized.client_id) {
+      selectedClient = await findClientById(connection, normalized.client_id);
+
+      if (!selectedClient) {
+        throw createHttpError(400, "client_id does not exist");
+      }
+
+      if (Number.parseInt(selectedClient.pharmacy_id, 10) !== Number.parseInt(branch.pharmacy_id, 10)) {
+        throw createHttpError(400, "client_id does not belong to the branch pharmacy");
+      }
+
+      if (String(selectedClient.status).toLowerCase() !== "active") {
+        throw createHttpError(400, "client_id is inactive");
+      }
+    }
 
     const sequence = await getNextSaleSequenceForBranchToday(connection, normalized.branch_id);
     const saleNumber = buildSaleNumber(normalized.branch_id, sequence);
@@ -365,11 +390,12 @@ export const createSale = async (payload, actorUserId) => {
       pharmacy_id: branch.pharmacy_id,
       branch_id: normalized.branch_id,
       cashier_user_id: actor.id,
+      client_id: normalized.client_id,
       user_id: actor.id,
       sale_number: saleNumber,
       sequence_number: sequence,
-      customer_name: normalized.customer_name,
-      customer_document: normalized.customer_document,
+      customer_name: selectedClient?.full_name ?? normalized.customer_name,
+      customer_document: selectedClient?.document_number ?? normalized.customer_document,
       subtotal: normalized.subtotal,
       discount_amount: normalized.total_discount,
       discount_type: normalized.discount_type,
@@ -451,6 +477,7 @@ export const createSale = async (payload, actorUserId) => {
 
     return {
       id: saleId,
+      client_id: normalized.client_id,
       ticket_number: saleNumber,
       subtotal: normalized.subtotal,
       discount_amount: normalized.total_discount,
@@ -490,14 +517,23 @@ export const getSaleById = async (saleId, actorUserId) => {
     await assertUserCanOperateBranch(connection, actor, branch);
 
     const items = await findSaleItemsBySaleId(connection, normalizedSaleId);
+    const selectedClient = sale.client_id ? await findClientById(connection, sale.client_id) : null;
 
     return {
       ...mapSaleSummary(sale),
       branch_id: Number.parseInt(sale.branch_id, 10),
+      client_id: sale.client_id ? Number.parseInt(sale.client_id, 10) : null,
       pharmacy_id: sale.pharmacy_id ? Number.parseInt(sale.pharmacy_id, 10) : null,
       cashier_user_id: sale.cashier_user_id ? Number.parseInt(sale.cashier_user_id, 10) : null,
       customer_name: sale.customer_name,
       customer_document: sale.customer_document,
+      client: selectedClient
+        ? {
+            id: Number.parseInt(selectedClient.id, 10),
+            full_name: selectedClient.full_name,
+            document_number: selectedClient.document_number,
+          }
+        : null,
       notes: sale.notes,
       items: items.map(mapSaleItem),
     };
