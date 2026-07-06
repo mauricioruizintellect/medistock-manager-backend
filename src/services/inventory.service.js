@@ -12,6 +12,20 @@ const createHttpError = (status, message) => {
 const normalizeBoolean = (value) => value === true || value === 1 || value === "1";
 const normalizeRoleCode = (value) => (value ? String(value).toUpperCase() : null);
 
+const getActiveAssignedBranchIds = async (userId) => {
+  const [rows] = await pool.execute(
+    `
+      SELECT branch_id
+      FROM user_branch_roles
+      WHERE user_id = ? AND status = 'active'
+      ORDER BY is_default DESC, branch_id ASC
+    `,
+    [userId]
+  );
+
+  return rows.map((row) => Number.parseInt(row.branch_id, 10)).filter((value) => Number.isInteger(value));
+};
+
 const parseOptionalInt = (value, fieldName) => {
   if (value === undefined || value === null || value === "") return null;
   const parsed = Number.parseInt(value, 10);
@@ -147,10 +161,33 @@ const appendScopeFilters = (where, values, scope) => {
 export const getInventoryStock = async (params, actorUserId) => {
   const actor = await getActorContextById(actorUserId);
   const scope = await buildInventoryScope(params, actor);
+  const restrictToAssignedBranches = !actor.is_super_admin && actor.role_code === "BRANCH_ADMIN";
+  const assignedBranchIds = restrictToAssignedBranches ? await getActiveAssignedBranchIds(actor.id) : [];
+
+  if (restrictToAssignedBranches && assignedBranchIds.length === 0) {
+    return {
+      total: 0,
+      items: [],
+    };
+  }
+
+  if (
+    restrictToAssignedBranches &&
+    scope.branchId &&
+    !assignedBranchIds.includes(Number.parseInt(scope.branchId, 10))
+  ) {
+    throw createHttpError(403, "You can only view inventory from your assigned branches");
+  }
+
   const where = [];
   const values = [];
 
   appendScopeFilters(where, values, scope);
+
+  if (restrictToAssignedBranches && !scope.branchId) {
+    where.push(`bp.branch_id IN (${assignedBranchIds.map(() => "?").join(", ")})`);
+    values.push(...assignedBranchIds);
+  }
 
   const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
 
@@ -203,14 +240,36 @@ export const getInventoryStock = async (params, actorUserId) => {
 export const getInventoryMovements = async (params, actorUserId) => {
   const actor = await getActorContextById(actorUserId);
   const scope = await buildInventoryScope(params, actor);
+  const restrictToAssignedBranches = !actor.is_super_admin && actor.role_code === "BRANCH_ADMIN";
+  const assignedBranchIds = restrictToAssignedBranches ? await getActiveAssignedBranchIds(actor.id) : [];
   const movementType = normalizeMovementType(params.movement_type);
   const dateFrom = normalizeDate(params.date_from, "date_from");
   const dateTo = normalizeDate(params.date_to, "date_to");
+
+  if (restrictToAssignedBranches && assignedBranchIds.length === 0) {
+    return {
+      total: 0,
+      items: [],
+    };
+  }
+
+  if (
+    restrictToAssignedBranches &&
+    scope.branchId &&
+    !assignedBranchIds.includes(Number.parseInt(scope.branchId, 10))
+  ) {
+    throw createHttpError(403, "You can only view inventory from your assigned branches");
+  }
 
   const where = [];
   const values = [];
 
   appendScopeFilters(where, values, scope);
+
+  if (restrictToAssignedBranches && !scope.branchId) {
+    where.push(`bp.branch_id IN (${assignedBranchIds.map(() => "?").join(", ")})`);
+    values.push(...assignedBranchIds);
+  }
 
   if (movementType) {
     where.push("im.movement_type = ?");

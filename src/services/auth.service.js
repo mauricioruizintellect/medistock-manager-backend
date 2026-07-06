@@ -105,30 +105,56 @@ const getDefaultBranchAssignment = async (userId) => {
 };
 
 const getUserPharmaciesAndRoles = async (userId) => {
-  /* const query = `
+  const query = `
     SELECT
-      p.id AS pharmacy_id,
-      p.name AS pharmacy_name,
-      r.id AS role_id,
-      r.name AS role_name,
-      r.code AS role_code
-    FROM user_pharmacy_roles upr
-    JOIN pharmacies p ON p.id = upr.pharmacy_id
-    JOIN roles r ON r.id = upr.role_id
-    WHERE upr.user_id = ?
-    ORDER BY p.id ASC
+      assignments.pharmacy_id,
+      assignments.pharmacy_name,
+      assignments.role_id,
+      assignments.role_name,
+      assignments.role_code
+    FROM (
+      SELECT
+        p.id AS pharmacy_id,
+        p.name AS pharmacy_name,
+        r.id AS role_id,
+        r.name AS role_name,
+        r.code AS role_code
+      FROM user_pharmacy_roles upr
+      JOIN pharmacies p ON p.id = upr.pharmacy_id
+      LEFT JOIN roles r ON r.id = upr.role_id
+      WHERE upr.user_id = ?
+        AND upr.status = 'active'
+
+      UNION
+
+      SELECT
+        p.id AS pharmacy_id,
+        p.name AS pharmacy_name,
+        r.id AS role_id,
+        r.name AS role_name,
+        r.code AS role_code
+      FROM users u
+      JOIN pharmacies p ON p.id = u.pharmacy_id
+      LEFT JOIN roles r ON r.id = u.role_id
+      WHERE u.id = ?
+        AND u.pharmacy_id IS NOT NULL
+    ) assignments
+    ORDER BY assignments.pharmacy_id ASC, assignments.role_id ASC
   `;
 
-  const [rows] = await pool.execute(query, [userId]);
+  const [rows] = await pool.execute(query, [userId, userId]);
 
   return rows.map((row) => ({
     pharmacy_id: row.pharmacy_id,
     pharmacy_name: row.pharmacy_name,
-    role: {
-      id: row.role_id,
-      name: String(row.role_code || row.role_name || "").toUpperCase(),
-    },
-  })); */
+    role: row.role_id
+      ? {
+          id: row.role_id,
+          code: row.role_code ? String(row.role_code).toUpperCase() : null,
+          name: row.role_name ? String(row.role_name).toUpperCase() : null,
+        }
+      : null,
+  }));
 };
 
 const updateLastLoginAt = async (userId) => {

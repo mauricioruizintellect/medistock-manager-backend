@@ -33,7 +33,7 @@ export const updateUserHandler = async (req, res, next) => {
 
 export const getUsersByPharmacyIdHandler = async (req, res, next) => {
   try {
-    const users = await getUsersByPharmacyId(req.params.pharmacyId);
+    const users = await getUsersByPharmacyId(req.params.pharmacyId, req.user.userId);
 
     res.status(200).json({
       users,

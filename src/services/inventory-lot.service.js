@@ -3,6 +3,7 @@ import {
   findActorById,
   findBranchProductById,
   findLotByBranchProductAndLotNumber,
+  getBranchProductLotStock,
   insertInventoryLot,
   insertInventoryMovement,
   updateBranchProductCurrentStock,
@@ -267,13 +268,14 @@ export const initialLoadInventoryLots = async (payload, actorUserId) => {
         );
       }
 
+      const previousStock = await getBranchProductLotStock(connection, item.branch_product_id);
+
       const inventoryLotId = await insertInventoryLot(
         connection,
         buildInventoryLotPayload(item, actor.id)
       );
 
-      const previousStock = Number.parseFloat(branchProduct.current_stock || 0);
-      const newStock = previousStock + item.initial_quantity;
+      const newStock = await getBranchProductLotStock(connection, item.branch_product_id);
 
       await updateBranchProductCurrentStock(connection, item.branch_product_id, newStock, actor.id);
 
@@ -350,13 +352,14 @@ export const receiveInventoryLots = async (payload, actorUserId) => {
         );
       }
 
+      const previousStock = await getBranchProductLotStock(connection, item.branch_product_id);
+
       const inventoryLotId = await insertInventoryLot(
         connection,
         buildInventoryLotPayload(item, actor.id)
       );
 
-      const previousStock = Number.parseFloat(branchProduct.current_stock || 0);
-      const newStock = previousStock + item.initial_quantity;
+      const newStock = await getBranchProductLotStock(connection, item.branch_product_id);
 
       await updateBranchProductCurrentStock(connection, item.branch_product_id, newStock, actor.id);
 

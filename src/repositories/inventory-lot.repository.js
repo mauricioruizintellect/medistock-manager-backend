@@ -69,6 +69,20 @@ export const insertInventoryLot = async (connection, payload) => {
   return result.insertId;
 };
 
+export const getBranchProductLotStock = async (connection, branchProductId) => {
+  const [rows] = await connection.execute(
+    `
+      SELECT COALESCE(SUM(current_quantity), 0) AS total_stock
+      FROM inventory_lots
+      WHERE branch_product_id = ?
+      FOR UPDATE
+    `,
+    [branchProductId]
+  );
+
+  return Number.parseFloat(rows[0]?.total_stock || 0);
+};
+
 export const updateBranchProductCurrentStock = async (
   connection,
   branchProductId,

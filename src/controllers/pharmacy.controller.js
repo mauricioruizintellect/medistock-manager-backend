@@ -38,7 +38,7 @@ export const updatePharmacyHandler = async (req, res, next) => {
 
 export const getPharmacyByIdHandler = async (req, res, next) => {
   try {
-    const pharmacy = await getPharmacyById(req.params.id);
+    const pharmacy = await getPharmacyById(req.params.id, req.user.userId);
 
     if (!pharmacy) {
       const error = new Error("Pharmacy not found");

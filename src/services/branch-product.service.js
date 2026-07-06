@@ -422,6 +422,8 @@ export const createBranchProduct = async (data, actorUserId) => {
 
   const branchId = parseRequiredInt(data.branch_id, "branch_id");
   const productId = parseRequiredInt(data.product_id, "product_id");
+  const initialCurrentStock = normalizeNumber(data.current_stock, "current_stock", 0);
+  const initialReservedStock = normalizeNumber(data.reserved_stock, "reserved_stock", 0);
 
   const branch = await getBranchById(branchId);
   const product = await getProductById(productId);
@@ -433,6 +435,20 @@ export const createBranchProduct = async (data, actorUserId) => {
   assertPharmacyAccess({ actor, pharmacyId: branch.pharmacy_id });
   await ensureUniqueBranchProduct(branchId, productId);
 
+  if (initialCurrentStock > 0) {
+    throw createHttpError(
+      400,
+      "current_stock cannot be initialized manually. Use inventory lot endpoints to load stock"
+    );
+  }
+
+  if (initialReservedStock > 0) {
+    throw createHttpError(
+      400,
+      "reserved_stock cannot be initialized manually when the branch product has no stock"
+    );
+  }
+
   const payload = {
     branch_id: branchId,
     product_id: productId,
@@ -441,8 +457,8 @@ export const createBranchProduct = async (data, actorUserId) => {
     min_stock: normalizeNumber(data.min_stock, "min_stock", 0),
     max_stock: normalizeNumber(data.max_stock, "max_stock", 0),
     reorder_point: normalizeNumber(data.reorder_point, "reorder_point", 0),
-    current_stock: normalizeNumber(data.current_stock, "current_stock", 0),
-    reserved_stock: normalizeNumber(data.reserved_stock, "reserved_stock", 0),
+    current_stock: 0,
+    reserved_stock: 0,
     shelf_location: normalizeString(data.shelf_location),
     is_sellable: normalizeBoolean(data.is_sellable) ? 1 : 0,
     is_visible_in_pos: normalizeBoolean(data.is_visible_in_pos) ? 1 : 0,

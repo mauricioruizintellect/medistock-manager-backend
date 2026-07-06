@@ -7,6 +7,8 @@ const createHttpError = (status, message) => {
 };
 
 const ALLOWED_STATUS = new Set(["active", "inactive"]);
+const normalizeBoolean = (value) => value === true || value === 1 || value === "1";
+const normalizeRoleCode = (value) => (value ? String(value).toUpperCase() : null);
 
 const normalizeStringField = (value) => {
   if (value === undefined) return undefined;
@@ -49,6 +51,54 @@ const normalizeActorUserId = (actorUserId) => {
   }
 
   return normalized;
+};
+
+const getActorContextById = async (userId) => {
+  const actorUserId = normalizeActorUserId(userId);
+
+  const [rows] = await pool.execute(
+    `
+      SELECT
+        u.id,
+        u.status,
+        u.pharmacy_id,
+        u.is_super_admin,
+        r.code AS role_code
+      FROM users u
+      LEFT JOIN roles r ON r.id = u.role_id
+      WHERE u.id = ?
+      LIMIT 1
+    `,
+    [actorUserId]
+  );
+
+  const actor = rows[0];
+
+  if (!actor) {
+    throw createHttpError(401, "Authenticated user not found");
+  }
+
+  if (String(actor.status).toLowerCase() !== "active") {
+    throw createHttpError(403, "Authenticated user is inactive");
+  }
+
+  return {
+    ...actor,
+    is_super_admin: normalizeBoolean(actor.is_super_admin),
+    role_code: normalizeRoleCode(actor.role_code),
+  };
+};
+
+const assertPharmacyAccess = (actor, pharmacyId) => {
+  if (actor.is_super_admin) return;
+
+  if (!actor.pharmacy_id) {
+    throw createHttpError(403, "User has no assigned pharmacy");
+  }
+
+  if (Number.parseInt(actor.pharmacy_id, 10) !== Number.parseInt(pharmacyId, 10)) {
+    throw createHttpError(403, "You can only access your assigned pharmacy");
+  }
 };
 
 const buildCreatePayload = (data, actorUserId) => {
@@ -98,7 +148,7 @@ const buildUpdatePayload = (data) => {
   return payload;
 };
 
-export const getPharmacyById = async (pharmacyId) => {
+export const getPharmacyById = async (pharmacyId, actorUserId = null) => {
   const pharmacyIdNumber = Number.parseInt(pharmacyId, 10);
 
   if (Number.isNaN(pharmacyIdNumber) || pharmacyIdNumber <= 0) {
@@ -133,7 +183,18 @@ export const getPharmacyById = async (pharmacyId) => {
     [pharmacyIdNumber]
   );
 
-  return rows[0] || null;
+  const pharmacy = rows[0] || null;
+
+  if (!pharmacy) {
+    return null;
+  }
+
+  if (actorUserId !== null && actorUserId !== undefined) {
+    const actor = await getActorContextById(actorUserId);
+    assertPharmacyAccess(actor, pharmacy.id);
+  }
+
+  return pharmacy;
 };
 
 const ensureUniqueName = async (name, currentId = null) => {
@@ -178,13 +239,16 @@ export const updatePharmacy = async (pharmacyId, data) => {
     throw createHttpError(400, "Invalid pharmacy id");
   }
 
+  const actor = await getActorContextById(data.actorUserId);
   const currentPharmacy = await getPharmacyById(pharmacyIdNumber);
   if (!currentPharmacy) {
     throw createHttpError(404, "Pharmacy not found");
   }
 
+  assertPharmacyAccess(actor, currentPharmacy.id);
+
   const payload = buildUpdatePayload(data);
-  payload.updated_by = normalizeActorUserId(data.actorUserId);
+  payload.updated_by = actor.id;
   await ensureUniqueName(payload.name, pharmacyIdNumber);
 
   const fields = Object.keys(payload);

@@ -228,8 +228,21 @@ const getUserResponseById = async (userId) => {
   };
 };
 
-export const getUsersByPharmacyId = async (pharmacyId) => {
+export const getUsersByPharmacyId = async (pharmacyId, actorUserId) => {
   const pharmacyIdNumber = parseRequiredInt(pharmacyId, "pharmacy_id");
+  const actor = await getActorContextById(actorUserId);
+
+  const canViewUsers = actor.is_super_admin || actor.role_code === "PHARMACY_ADMIN";
+  if (!canViewUsers) {
+    throw createHttpError(403, "Only SUPER_ADMIN or PHARMACY_ADMIN can view users");
+  }
+
+  if (
+    !actor.is_super_admin &&
+    Number.parseInt(actor.pharmacy_id, 10) !== Number.parseInt(pharmacyIdNumber, 10)
+  ) {
+    throw createHttpError(403, "You can only view users from your assigned pharmacy");
+  }
 
   await ensurePharmacyExists(pharmacyIdNumber);
 

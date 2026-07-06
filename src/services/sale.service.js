@@ -10,6 +10,7 @@ import {
   getNextSaleSequenceForBranchToday,
   findBranchProductForUpdate,
   findAvailableLotsFefo,
+  getBranchProductLotStock,
   updateInventoryLotStock,
   updateBranchProductStock,
   insertInventoryMovement,
@@ -375,10 +376,12 @@ export const createSale = async (payload, actorUserId) => {
       }
 
       const taxRate = toNumber(branchProduct.tax_rate);
+      const totalLotStock = await getBranchProductLotStock(connection, item.branch_product_id);
       const lineTax = roundCurrency((item.line_net * taxRate) / 100);
       item.tax_rate = taxRate;
       item.tax_amount = lineTax;
       item.line_total = roundCurrency(item.line_net + lineTax);
+      item.total_lot_stock = totalLotStock;
       item.branch_product = branchProduct;
       item.lots = lots;
       taxTotal = roundCurrency(taxTotal + lineTax);
@@ -429,7 +432,7 @@ export const createSale = async (payload, actorUserId) => {
       });
 
       let remainingQuantity = item.quantity;
-      let runningPreviousStock = Number.parseFloat(branchProduct.current_stock || 0);
+      let runningPreviousStock = item.total_lot_stock;
 
       for (const lot of item.lots) {
         if (remainingQuantity <= 0) break;
@@ -470,7 +473,8 @@ export const createSale = async (payload, actorUserId) => {
         remainingQuantity = roundCurrency(remainingQuantity - consumedQuantity);
       }
 
-      await updateBranchProductStock(connection, item.branch_product_id, runningPreviousStock, actor.id);
+      const nextCurrentStock = await getBranchProductLotStock(connection, item.branch_product_id);
+      await updateBranchProductStock(connection, item.branch_product_id, nextCurrentStock, actor.id);
     }
 
     await connection.commit();
