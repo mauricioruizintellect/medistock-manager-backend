@@ -14,7 +14,7 @@ const buildJwtToken = (user) => {
   const jwtSecret = process.env.JWT_SECRET;
 
   if (!jwtSecret) {
-    throw createHttpError(500, "JWT_SECRET is not configured");
+    throw createHttpError(500, "JWT_SECRET no está configurado");
   }
 
   return jwt.sign(
@@ -202,24 +202,24 @@ const shapeUserResponse = async (user) => {
 
 export const loginUser = async ({ email, password }) => {
   if (!email || !password) {
-    throw createHttpError(400, "Email and password are required");
+    throw createHttpError(400, "El correo electrónico y la contraseña son obligatorios");
   }
 
   const normalizedEmail = String(email).trim().toLowerCase();
   const user = await getUserByEmail(normalizedEmail);
 
   if (!user) {
-    throw createHttpError(401, "Invalid credentials");
+    throw createHttpError(401, "Credenciales inválidas");
   }
 
   if (String(user.status).toLowerCase() !== "active") {
-    throw createHttpError(403, "User account is inactive");
+    throw createHttpError(403, "La cuenta de usuario está inactiva");
   }
 
   const isPasswordValid = await bcrypt.compare(password, user.password_hash);
 
   if (!isPasswordValid) {
-    throw createHttpError(401, "Invalid credentials");
+    throw createHttpError(401, "Credenciales inválidas");
   }
 
   await updateLastLoginAt(user.id);
@@ -237,11 +237,11 @@ export const getAuthenticatedUser = async (userId) => {
   const user = await getUserById(userId);
 
   if (!user) {
-    throw createHttpError(401, "User not found");
+    throw createHttpError(401, "Usuario no encontrado");
   }
 
   if (String(user.status).toLowerCase() !== "active") {
-    throw createHttpError(403, "User account is inactive");
+    throw createHttpError(403, "La cuenta de usuario está inactiva");
   }
 
   return shapeUserResponse(user);

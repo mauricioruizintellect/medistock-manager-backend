@@ -107,9 +107,9 @@ export const insertSaleDetailLot = async (connection, payload) => {
 export const getNextSaleSequenceForBranchToday = async (connection, branchId) => {
   const [rows] = await connection.execute(
     `
-      SELECT COUNT(*) AS total
+      SELECT COALESCE(MAX(sequence_number), 0) AS total
       FROM sales
-      WHERE branch_id = ? AND DATE(created_at) = CURDATE()
+      WHERE branch_id = ?
       FOR UPDATE
     `,
     [branchId]

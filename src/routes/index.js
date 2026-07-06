@@ -18,7 +18,7 @@ const router = Router();
 
 router.get("/", (_req, res) => {
   res.status(200).json({
-    message: "MediStock Manager Backend API",
+    message: "API Backend de MediStock Manager",
     version: "v1",
   });
 });

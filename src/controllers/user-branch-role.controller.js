@@ -9,7 +9,7 @@ export const createUserBranchRoleHandler = async (req, res, next) => {
     const record = await createUserBranchRole(req.body, req.user.userId);
 
     res.status(201).json({
-      message: "User branch role created successfully",
+      message: "Asignación de sucursal creada correctamente",
       user_branch_role: record,
     });
   } catch (error) {
@@ -32,7 +32,7 @@ export const deleteUserBranchRoleHandler = async (req, res, next) => {
     const result = await deleteUserBranchRole(req.params.id, req.user.userId);
 
     res.status(200).json({
-      message: "User branch role deleted successfully",
+      message: "Asignación de sucursal eliminada correctamente",
       result,
     });
   } catch (error) {

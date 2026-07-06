@@ -28,7 +28,7 @@ const normalizeString = (value) => {
 const normalizeRequiredString = (value, fieldLabel) => {
   const normalized = normalizeString(value);
   if (!normalized) {
-    throw createHttpError(400, `${fieldLabel} is required`);
+    throw createHttpError(400, `${fieldLabel} es obligatorio`);
   }
   return normalized;
 };
@@ -37,13 +37,13 @@ const normalizeEmail = (value, required = false) => {
   const normalized = normalizeString(value)?.toLowerCase();
 
   if (required && !normalized) {
-    throw createHttpError(400, "Email is required");
+    throw createHttpError(400, "El correo electrónico es obligatorio");
   }
 
   if (!normalized) return normalized;
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
-    throw createHttpError(400, "Invalid email format");
+    throw createHttpError(400, "Formato de correo electrónico inválido");
   }
 
   return normalized;
@@ -56,7 +56,7 @@ const normalizeStatus = (value, required = false) => {
 
   const normalized = String(value).trim().toLowerCase();
   if (!ALLOWED_STATUS.has(normalized)) {
-    throw createHttpError(400, "Invalid status. Allowed values: active, inactive");
+    throw createHttpError(400, "Estado inválido. Valores permitidos: active, inactive");
   }
 
   return normalized;
@@ -67,7 +67,7 @@ const parseOptionalInt = (value, fieldName) => {
   const parsed = Number.parseInt(value, 10);
 
   if (Number.isNaN(parsed) || parsed <= 0) {
-    throw createHttpError(400, `${fieldName} must be a positive integer`);
+    throw createHttpError(400, `${fieldName} debe ser un entero positivo`);
   }
 
   return parsed;
@@ -76,7 +76,7 @@ const parseOptionalInt = (value, fieldName) => {
 const parseRequiredInt = (value, fieldName) => {
   const parsed = parseOptionalInt(value, fieldName);
   if (!parsed) {
-    throw createHttpError(400, `${fieldName} is required`);
+    throw createHttpError(400, `${fieldName} es obligatorio`);
   }
   return parsed;
 };
@@ -100,7 +100,7 @@ const ensurePharmacyExists = async (pharmacyId) => {
 
   const [rows] = await pool.execute("SELECT id FROM pharmacies WHERE id = ? LIMIT 1", [pharmacyId]);
   if (rows.length === 0) {
-    throw createHttpError(400, "Pharmacy not found");
+    throw createHttpError(400, "Farmacia no encontrada");
   }
 };
 
@@ -124,11 +124,11 @@ const getActorContextById = async (userId) => {
 
   const user = rows[0];
   if (!user) {
-    throw createHttpError(401, "Authenticated user not found");
+    throw createHttpError(401, "Usuario autenticado no encontrado");
   }
 
   if (String(user.status).toLowerCase() !== "active") {
-    throw createHttpError(403, "Authenticated user is inactive");
+    throw createHttpError(403, "El usuario autenticado está inactivo");
   }
 
   return {
@@ -161,7 +161,7 @@ const getUserByIdForManagement = async (userId) => {
   );
 
   if (!rows[0]) {
-    throw createHttpError(404, "User not found");
+    throw createHttpError(404, "Usuario no encontrado");
   }
 
   return {
@@ -184,7 +184,7 @@ const ensureUniqueEmail = async (email, excludedId = null) => {
   );
 
   if (rows.length > 0) {
-    throw createHttpError(409, "Email already registered");
+    throw createHttpError(409, "El correo electrónico ya está registrado");
   }
 };
 
@@ -217,7 +217,7 @@ const getUserResponseById = async (userId) => {
   );
 
   if (!rows[0]) {
-    throw createHttpError(404, "User not found");
+    throw createHttpError(404, "Usuario no encontrado");
   }
 
   const user = rows[0];
@@ -234,14 +234,14 @@ export const getUsersByPharmacyId = async (pharmacyId, actorUserId) => {
 
   const canViewUsers = actor.is_super_admin || actor.role_code === "PHARMACY_ADMIN";
   if (!canViewUsers) {
-    throw createHttpError(403, "Only SUPER_ADMIN or PHARMACY_ADMIN can view users");
+    throw createHttpError(403, "Solo SUPER_ADMIN o PHARMACY_ADMIN pueden ver usuarios");
   }
 
   if (
     !actor.is_super_admin &&
     Number.parseInt(actor.pharmacy_id, 10) !== Number.parseInt(pharmacyIdNumber, 10)
   ) {
-    throw createHttpError(403, "You can only view users from your assigned pharmacy");
+    throw createHttpError(403, "Solo puedes ver usuarios de tu farmacia asignada");
   }
 
   await ensurePharmacyExists(pharmacyIdNumber);
@@ -302,25 +302,25 @@ const assertPharmacyAdminCanManage = ({
   targetIsSuperAdmin = false,
 }) => {
   if (actor.role_code !== "PHARMACY_ADMIN") {
-    throw createHttpError(403, "You do not have permission to manage users");
+    throw createHttpError(403, "No tienes permisos para gestionar usuarios");
   }
 
   if (!actor.pharmacy_id) {
-    throw createHttpError(403, "PHARMACY_ADMIN user has no assigned pharmacy");
+    throw createHttpError(403, "El usuario PHARMACY_ADMIN no tiene una farmacia asignada");
   }
 
   if (targetIsSuperAdmin) {
-    throw createHttpError(403, "PHARMACY_ADMIN cannot manage super admin users");
+    throw createHttpError(403, "PHARMACY_ADMIN no puede gestionar usuarios superadministradores");
   }
 
   if (!targetPharmacyId || Number.parseInt(targetPharmacyId, 10) !== Number.parseInt(actor.pharmacy_id, 10)) {
-    throw createHttpError(403, "PHARMACY_ADMIN can only manage users in their assigned pharmacy");
+    throw createHttpError(403, "PHARMACY_ADMIN solo puede gestionar usuarios de su farmacia asignada");
   }
 
   if (!MANAGEABLE_ROLE_CODES_BY_PHARMACY_ADMIN.has(normalizeRoleCode(targetRoleCode))) {
     throw createHttpError(
       403,
-      "PHARMACY_ADMIN can only manage roles: CASHIER, PHARMACY_ADMIN, BRANCH_ADMIN"
+      "PHARMACY_ADMIN solo puede gestionar los roles: CASHIER, PHARMACY_ADMIN, BRANCH_ADMIN"
     );
   }
 };
@@ -331,7 +331,7 @@ const buildCreatePayload = async (data, actor) => {
   const role = await getRoleById(roleId);
 
   if (!role) {
-    throw createHttpError(400, "Role not found");
+    throw createHttpError(400, "Rol no encontrado");
   }
 
   const roleCode = normalizeRoleCode(role.code);
@@ -350,7 +350,7 @@ const buildCreatePayload = async (data, actor) => {
       payloadPharmacyId &&
       Number.parseInt(payloadPharmacyId, 10) !== Number.parseInt(actor.pharmacy_id, 10)
     ) {
-      throw createHttpError(403, "PHARMACY_ADMIN can only create users in their assigned pharmacy");
+      throw createHttpError(403, "PHARMACY_ADMIN solo puede crear usuarios en su farmacia asignada");
     }
 
     pharmacyId = Number.parseInt(actor.pharmacy_id, 10);
@@ -358,9 +358,9 @@ const buildCreatePayload = async (data, actor) => {
 
   await ensurePharmacyExists(pharmacyId);
 
-  const plainPassword = normalizeRequiredString(data.password, "Password");
+  const plainPassword = normalizeRequiredString(data.password, "Contraseña");
   if (plainPassword.length < 6) {
-    throw createHttpError(400, "Password must be at least 6 characters");
+    throw createHttpError(400, "La contraseña debe tener al menos 6 caracteres");
   }
 
   const passwordHash = await bcrypt.hash(plainPassword, 10);
@@ -368,8 +368,8 @@ const buildCreatePayload = async (data, actor) => {
   await ensureUniqueEmail(email);
 
   return {
-    first_name: normalizeRequiredString(data.first_name, "First name"),
-    last_name: normalizeRequiredString(data.last_name, "Last name"),
+    first_name: normalizeRequiredString(data.first_name, "Nombre"),
+    last_name: normalizeRequiredString(data.last_name, "Apellido"),
     email,
     pharmacy_id: pharmacyId,
     role_id: roleId,
@@ -385,11 +385,11 @@ const buildUpdatePayload = async (currentUser, data, actor) => {
   const payload = {};
 
   if (Object.prototype.hasOwnProperty.call(data, "first_name")) {
-    payload.first_name = normalizeRequiredString(data.first_name, "First name");
+    payload.first_name = normalizeRequiredString(data.first_name, "Nombre");
   }
 
   if (Object.prototype.hasOwnProperty.call(data, "last_name")) {
-    payload.last_name = normalizeRequiredString(data.last_name, "Last name");
+    payload.last_name = normalizeRequiredString(data.last_name, "Apellido");
   }
 
   if (Object.prototype.hasOwnProperty.call(data, "email")) {
@@ -406,9 +406,9 @@ const buildUpdatePayload = async (currentUser, data, actor) => {
   }
 
   if (Object.prototype.hasOwnProperty.call(data, "password")) {
-    const plainPassword = normalizeRequiredString(data.password, "Password");
+    const plainPassword = normalizeRequiredString(data.password, "Contraseña");
     if (plainPassword.length < 6) {
-      throw createHttpError(400, "Password must be at least 6 characters");
+      throw createHttpError(400, "La contraseña debe tener al menos 6 caracteres");
     }
     payload.password_hash = await bcrypt.hash(plainPassword, 10);
   }
@@ -419,7 +419,7 @@ const buildUpdatePayload = async (currentUser, data, actor) => {
     nextRoleId = parseRequiredInt(data.role_id, "role_id");
     const role = await getRoleById(nextRoleId);
     if (!role) {
-      throw createHttpError(400, "Role not found");
+      throw createHttpError(400, "Rol no encontrado");
     }
     nextRoleCode = normalizeRoleCode(role.code);
     payload.role_id = nextRoleId;
@@ -435,7 +435,7 @@ const buildUpdatePayload = async (currentUser, data, actor) => {
   let nextIsSuperAdmin = currentUser.is_super_admin;
   if (Object.prototype.hasOwnProperty.call(data, "is_super_admin")) {
     if (!actor.is_super_admin) {
-      throw createHttpError(403, "Only super admin can update is_super_admin");
+      throw createHttpError(403, "Solo el superadministrador puede actualizar is_super_admin");
     }
     nextIsSuperAdmin = normalizeBoolean(data.is_super_admin);
     payload.is_super_admin = nextIsSuperAdmin ? 1 : 0;
@@ -451,7 +451,7 @@ const buildUpdatePayload = async (currentUser, data, actor) => {
   }
 
   if (Object.keys(payload).length === 0) {
-    throw createHttpError(400, "No valid fields provided for update");
+    throw createHttpError(400, "No se proporcionaron campos válidos para actualizar");
   }
 
   return payload;
@@ -476,7 +476,7 @@ export const createUser = async (data, actorUserId) => {
 export const updateUser = async (userId, data, actorUserId) => {
   const targetUserId = Number.parseInt(userId, 10);
   if (Number.isNaN(targetUserId) || targetUserId <= 0) {
-    throw createHttpError(400, "Invalid user id");
+    throw createHttpError(400, "ID de usuario inválido");
   }
 
   const actor = await getActorContextById(actorUserId);

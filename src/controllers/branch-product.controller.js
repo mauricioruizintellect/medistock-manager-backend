@@ -9,7 +9,7 @@ export const createBranchProductHandler = async (req, res, next) => {
     const branchProduct = await createBranchProduct(req.body, req.user.userId);
 
     res.status(201).json({
-      message: "Branch product created successfully",
+      message: "Producto de sucursal creado correctamente",
       branch_product: branchProduct,
     });
   } catch (error) {
@@ -32,7 +32,7 @@ export const updateBranchProductHandler = async (req, res, next) => {
     const branchProduct = await updateBranchProduct(req.params.id, req.body, req.user.userId);
 
     res.status(200).json({
-      message: "Branch product updated successfully",
+      message: "Producto de sucursal actualizado correctamente",
       branch_product: branchProduct,
     });
   } catch (error) {

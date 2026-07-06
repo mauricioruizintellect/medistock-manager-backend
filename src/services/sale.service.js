@@ -36,7 +36,7 @@ const toNumber = (value) => roundCurrency(Number.parseFloat(value || 0));
 const parseRequiredInt = (value, fieldName) => {
   const parsed = Number.parseInt(value, 10);
   if (Number.isNaN(parsed) || parsed <= 0) {
-    throw createHttpError(400, `${fieldName} is required and must be a positive integer`);
+    throw createHttpError(400, `${fieldName} es obligatorio y debe ser un entero positivo`);
   }
   return parsed;
 };
@@ -49,15 +49,15 @@ const parseOptionalInt = (value, fieldName) => {
 const parsePositiveNumber = (value, fieldName, allowZero = false) => {
   const parsed = Number.parseFloat(value);
   if (Number.isNaN(parsed)) {
-    throw createHttpError(400, `${fieldName} must be a valid number`);
+    throw createHttpError(400, `${fieldName} debe ser un número válido`);
   }
 
   if (allowZero) {
     if (parsed < 0) {
-      throw createHttpError(400, `${fieldName} must be greater than or equal to 0`);
+      throw createHttpError(400, `${fieldName} debe ser mayor o igual a 0`);
     }
   } else if (parsed <= 0) {
-    throw createHttpError(400, `${fieldName} must be greater than 0`);
+    throw createHttpError(400, `${fieldName} debe ser mayor que 0`);
   }
 
   return parsed;
@@ -72,7 +72,7 @@ const normalizeString = (value) => {
 const normalizePaymentMethod = (value) => {
   const normalized = normalizeString(value)?.toLowerCase() || "cash";
   if (!ALLOWED_PAYMENT_METHODS.has(normalized)) {
-    throw createHttpError(400, "payment_method is invalid");
+    throw createHttpError(400, "payment_method es inválido");
   }
   return normalized;
 };
@@ -80,7 +80,7 @@ const normalizePaymentMethod = (value) => {
 const normalizePaymentStatus = (value) => {
   const normalized = normalizeString(value)?.toLowerCase() || "paid";
   if (!ALLOWED_PAYMENT_STATUSES.has(normalized)) {
-    throw createHttpError(400, "payment_status is invalid");
+    throw createHttpError(400, "payment_status es inválido");
   }
   return normalized;
 };
@@ -93,7 +93,7 @@ const normalizeDiscountType = (value, discountValue) => {
   }
 
   if (!ALLOWED_DISCOUNT_TYPES.has(normalized)) {
-    throw createHttpError(400, "discount_type is invalid");
+    throw createHttpError(400, "discount_type es inválido");
   }
 
   return normalized;
@@ -115,14 +115,14 @@ const calculateGlobalDiscountAmount = (discountType, discountValue, baseAmount) 
 
   if (discountType === "percentage") {
     if (discountValue > 100) {
-      throw createHttpError(400, "discount_value cannot be greater than 100 for percentage discounts");
+      throw createHttpError(400, "discount_value no puede ser mayor que 100 para descuentos porcentuales");
     }
 
     return roundCurrency((baseAmount * discountValue) / 100);
   }
 
   if (discountValue > baseAmount) {
-    throw createHttpError(400, "discount_value cannot be greater than the sale subtotal");
+    throw createHttpError(400, "discount_value no puede ser mayor que el subtotal de la venta");
   }
 
   return roundCurrency(discountValue);
@@ -143,7 +143,7 @@ const distributeGlobalDiscount = (items, globalDiscountAmount) => {
   );
 
   if (discountBase <= 0) {
-    throw createHttpError(400, "Cannot apply a sale discount when item subtotals are zero");
+    throw createHttpError(400, "No se puede aplicar un descuento a la venta cuando los subtotales de los items son cero");
   }
 
   let assignedDiscount = 0;
@@ -162,7 +162,7 @@ const distributeGlobalDiscount = (items, globalDiscountAmount) => {
     if (additionalDiscountAmount > remainingBase) {
       throw createHttpError(
         400,
-        `Global discount cannot exceed the net subtotal for branch_product_id ${item.branch_product_id}`
+        `El descuento global no puede exceder el subtotal neto para branch_product_id ${item.branch_product_id}`
       );
     }
 
@@ -178,16 +178,16 @@ const distributeGlobalDiscount = (items, globalDiscountAmount) => {
 
 const normalizeSalePayload = (payload) => {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    throw createHttpError(400, "Payload must be an object");
+    throw createHttpError(400, "El payload debe ser un objeto");
   }
 
   if (!Array.isArray(payload.items) || payload.items.length === 0) {
-    throw createHttpError(400, "items is required and must contain at least one item");
+    throw createHttpError(400, "items es obligatorio y debe contener al menos un item");
   }
 
   const items = payload.items.map((item, index) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) {
-      throw createHttpError(400, `items[${index}] must be an object`);
+      throw createHttpError(400, `items[${index}] debe ser un objeto`);
     }
 
     const quantity = parsePositiveNumber(item.quantity, `items[${index}].quantity`);
@@ -202,7 +202,7 @@ const normalizeSalePayload = (payload) => {
     if (discountAmount > lineSubtotal) {
       throw createHttpError(
         400,
-        `items[${index}].discount_amount cannot be greater than line subtotal`
+        `items[${index}].discount_amount no puede ser mayor que el subtotal de la línea`
       );
     }
 
@@ -243,11 +243,11 @@ const getActorContext = async (connection, actorUserId) => {
   const actor = await findUserContextById(connection, actorUserId);
 
   if (!actor) {
-    throw createHttpError(401, "Authenticated user not found");
+    throw createHttpError(401, "Usuario autenticado no encontrado");
   }
 
   if (String(actor.status).toLowerCase() !== "active") {
-    throw createHttpError(403, "Authenticated user is inactive");
+    throw createHttpError(403, "El usuario autenticado está inactivo");
   }
 
   return {
@@ -264,13 +264,13 @@ const assertUserCanOperateBranch = async (connection, actor, branch) => {
     !actor.pharmacy_id ||
     Number.parseInt(actor.pharmacy_id, 10) !== Number.parseInt(branch.pharmacy_id, 10)
   ) {
-    throw createHttpError(403, "User cannot operate this branch");
+    throw createHttpError(403, "El usuario no puede operar en esta sucursal");
   }
 
   if (actor.role_code === "CASHIER" || actor.role_code === "BRANCH_ADMIN") {
     const hasAccess = await hasActiveBranchAccess(connection, actor.id, branch.id);
     if (!hasAccess) {
-      throw createHttpError(403, "User has no access to this branch");
+      throw createHttpError(403, "El usuario no tiene acceso a esta sucursal");
     }
   }
 };
@@ -316,7 +316,7 @@ export const createSale = async (payload, actorUserId) => {
     const branch = await findBranchById(connection, normalized.branch_id);
 
     if (!branch) {
-      throw createHttpError(400, "branch_id does not exist");
+      throw createHttpError(400, "branch_id no existe");
     }
 
     await assertUserCanOperateBranch(connection, actor, branch);
@@ -326,15 +326,15 @@ export const createSale = async (payload, actorUserId) => {
       selectedClient = await findClientById(connection, normalized.client_id);
 
       if (!selectedClient) {
-        throw createHttpError(400, "client_id does not exist");
+        throw createHttpError(400, "client_id no existe");
       }
 
       if (Number.parseInt(selectedClient.pharmacy_id, 10) !== Number.parseInt(branch.pharmacy_id, 10)) {
-        throw createHttpError(400, "client_id does not belong to the branch pharmacy");
+        throw createHttpError(400, "client_id no pertenece a la farmacia de la sucursal");
       }
 
       if (String(selectedClient.status).toLowerCase() !== "active") {
-        throw createHttpError(400, "client_id is inactive");
+        throw createHttpError(400, "client_id está inactivo");
       }
     }
 
@@ -345,22 +345,22 @@ export const createSale = async (payload, actorUserId) => {
     for (const item of normalized.items) {
       const branchProduct = await findBranchProductForUpdate(connection, item.branch_product_id);
       if (!branchProduct) {
-        throw createHttpError(400, `branch_product_id ${item.branch_product_id} does not exist`);
+        throw createHttpError(400, `branch_product_id ${item.branch_product_id} no existe`);
       }
 
       if (Number.parseInt(branchProduct.branch_id, 10) !== normalized.branch_id) {
         throw createHttpError(
           400,
-          `branch_product_id ${item.branch_product_id} does not belong to branch ${normalized.branch_id}`
+          `branch_product_id ${item.branch_product_id} no pertenece a la sucursal ${normalized.branch_id}`
         );
       }
 
       if (String(branchProduct.status).toLowerCase() !== "active") {
-        throw createHttpError(400, `branch_product_id ${item.branch_product_id} is not active`);
+        throw createHttpError(400, `branch_product_id ${item.branch_product_id} está inactivo`);
       }
 
       if (!normalizeBoolean(branchProduct.is_sellable ?? 1)) {
-        throw createHttpError(400, `branch_product_id ${item.branch_product_id} is not sellable`);
+        throw createHttpError(400, `branch_product_id ${item.branch_product_id} no es vendible`);
       }
 
       const lots = await findAvailableLotsFefo(connection, item.branch_product_id);
@@ -369,9 +369,20 @@ export const createSale = async (payload, actorUserId) => {
       );
 
       if (availableStock < item.quantity) {
+        const totalLotStock = roundCurrency(
+          await getBranchProductLotStock(connection, item.branch_product_id)
+        );
+
+        if (availableStock === 0 && totalLotStock > 0) {
+          throw createHttpError(
+            400,
+            `No hay stock vendible para branch_product_id ${item.branch_product_id}. Stock existente en lotes: ${totalLotStock}. Los lotes disponibles pueden estar vencidos o inactivos`
+          );
+        }
+
         throw createHttpError(
           400,
-          `Insufficient stock for branch_product_id ${item.branch_product_id}. Available: ${availableStock}, Requested: ${item.quantity}`
+          `Stock insuficiente para branch_product_id ${item.branch_product_id}. Disponible: ${availableStock}, solicitado: ${item.quantity}`
         );
       }
 
@@ -495,6 +506,21 @@ export const createSale = async (payload, actorUserId) => {
     };
   } catch (error) {
     await connection.rollback();
+
+    if (error.code === "ER_DUP_ENTRY" && String(error.message || "").includes("unique_branch_sequence")) {
+      throw createHttpError(
+        409,
+        "No se pudo generar un consecutivo único para la venta. Intenta nuevamente"
+      );
+    }
+
+    if (error.code === "ER_DUP_ENTRY" && String(error.message || "").includes("unique_sale_number")) {
+      throw createHttpError(
+        409,
+        "No se pudo generar un número de venta único. Intenta nuevamente"
+      );
+    }
+
     throw error;
   } finally {
     connection.release();
@@ -510,12 +536,12 @@ export const getSaleById = async (saleId, actorUserId) => {
     const sale = await findSaleById(connection, normalizedSaleId);
 
     if (!sale) {
-      throw createHttpError(404, "Sale not found");
+      throw createHttpError(404, "Venta no encontrada");
     }
 
     const branch = await findBranchById(connection, sale.branch_id);
     if (!branch) {
-      throw createHttpError(404, "Sale branch not found");
+      throw createHttpError(404, "Sucursal de la venta no encontrada");
     }
 
     await assertUserCanOperateBranch(connection, actor, branch);

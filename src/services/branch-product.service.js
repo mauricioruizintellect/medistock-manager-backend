@@ -16,7 +16,7 @@ const normalizeRoleCode = (value) => (value ? String(value).toUpperCase() : null
 const parseRequiredInt = (value, fieldName) => {
   const parsed = Number.parseInt(value, 10);
   if (Number.isNaN(parsed) || parsed <= 0) {
-    throw createHttpError(400, `${fieldName} is required and must be a positive integer`);
+    throw createHttpError(400, `${fieldName} es obligatorio y debe ser un entero positivo`);
   }
   return parsed;
 };
@@ -31,7 +31,7 @@ const normalizeNumber = (value, fieldName, fallback = null) => {
   const parsed = Number.parseFloat(value);
 
   if (Number.isNaN(parsed) || parsed < 0) {
-    throw createHttpError(400, `${fieldName} must be a positive number`);
+    throw createHttpError(400, `${fieldName} debe ser un número positivo`);
   }
 
   return parsed;
@@ -52,7 +52,7 @@ const normalizeStatus = (value, required = false) => {
 
   const normalized = String(value).trim().toLowerCase();
   if (!ALLOWED_STATUS.has(normalized)) {
-    throw createHttpError(400, "Invalid status. Allowed values: active, inactive");
+    throw createHttpError(400, "Estado inválido. Valores permitidos: active, inactive");
   }
 
   return normalized;
@@ -68,7 +68,7 @@ const parseOptionalBoolean = (value, fieldName) => {
   if (normalized === "true" || normalized === "1") return true;
   if (normalized === "false" || normalized === "0") return false;
 
-  throw createHttpError(400, `${fieldName} must be a boolean value`);
+  throw createHttpError(400, `${fieldName} debe ser un valor booleano`);
 };
 
 const getActorContextById = async (userId, mode = "manage") => {
@@ -90,11 +90,11 @@ const getActorContextById = async (userId, mode = "manage") => {
 
   const actor = rows[0];
   if (!actor) {
-    throw createHttpError(401, "Authenticated user not found");
+    throw createHttpError(401, "Usuario autenticado no encontrado");
   }
 
   if (String(actor.status).toLowerCase() !== "active") {
-    throw createHttpError(403, "Authenticated user is inactive");
+    throw createHttpError(403, "El usuario autenticado está inactivo");
   }
 
   const normalized = {
@@ -109,13 +109,13 @@ const getActorContextById = async (userId, mode = "manage") => {
     throw createHttpError(
       403,
       mode === "read"
-        ? "Only SUPER_ADMIN, PHARMACY_ADMIN, BRANCH_ADMIN or CASHIER can view branch products"
-        : "Only SUPER_ADMIN, PHARMACY_ADMIN or BRANCH_ADMIN can manage branch products"
+        ? "Solo SUPER_ADMIN, PHARMACY_ADMIN, BRANCH_ADMIN o CASHIER pueden ver productos por sucursal"
+        : "Solo SUPER_ADMIN, PHARMACY_ADMIN o BRANCH_ADMIN pueden gestionar productos por sucursal"
     );
   }
 
   if (!normalized.is_super_admin && !normalized.pharmacy_id) {
-    throw createHttpError(403, "User has no assigned pharmacy");
+    throw createHttpError(403, "El usuario no tiene una farmacia asignada");
   }
 
   return normalized;
@@ -147,7 +147,7 @@ const getBranchById = async (branchId) => {
   );
 
   if (!rows[0]) {
-    throw createHttpError(400, "Branch not found");
+    throw createHttpError(400, "Sucursal no encontrada");
   }
 
   return rows[0];
@@ -165,7 +165,7 @@ const getProductById = async (productId) => {
   );
 
   if (!rows[0]) {
-    throw createHttpError(400, "Product not found");
+    throw createHttpError(400, "Producto no encontrado");
   }
 
   return rows[0];
@@ -175,7 +175,7 @@ const ensurePharmacyExists = async (pharmacyId) => {
   const [rows] = await pool.execute("SELECT id FROM pharmacies WHERE id = ? LIMIT 1", [pharmacyId]);
 
   if (rows.length === 0) {
-    throw createHttpError(400, "Pharmacy not found");
+    throw createHttpError(400, "Farmacia no encontrada");
   }
 };
 
@@ -186,7 +186,7 @@ const assertPharmacyAccess = ({ actor, pharmacyId }) => {
   const targetPharmacyId = Number.parseInt(pharmacyId, 10);
 
   if (actorPharmacyId !== targetPharmacyId) {
-    throw createHttpError(403, "You can only manage branch products in your assigned pharmacy");
+    throw createHttpError(403, "Solo puedes gestionar productos por sucursal de tu farmacia asignada");
   }
 };
 
@@ -202,7 +202,7 @@ const ensureUniqueBranchProduct = async (branchId, productId) => {
   );
 
   if (rows.length > 0) {
-    throw createHttpError(409, "This product is already assigned to this branch");
+    throw createHttpError(409, "Este producto ya está asignado a esta sucursal");
   }
 };
 
@@ -283,11 +283,11 @@ export const getBranchProducts = async (params, actorUserId) => {
     assertPharmacyAccess({ actor, pharmacyId: branch.pharmacy_id });
 
      if (restrictToAssignedBranches && !assignedBranchIds.includes(Number.parseInt(branch.id, 10))) {
-      throw createHttpError(403, "You can only view branch products from your assigned branches");
+      throw createHttpError(403, "Solo puedes ver productos por sucursal de tus sucursales asignadas");
     }
 
     if (pharmacyId && Number.parseInt(branch.pharmacy_id, 10) !== pharmacyId) {
-      throw createHttpError(400, "branch_id does not belong to pharmacy_id");
+      throw createHttpError(400, "branch_id no pertenece a pharmacy_id");
     }
 
     pharmacyId = Number.parseInt(branch.pharmacy_id, 10);
@@ -298,7 +298,7 @@ export const getBranchProducts = async (params, actorUserId) => {
     assertPharmacyAccess({ actor, pharmacyId: product.pharmacy_id });
 
     if (pharmacyId && Number.parseInt(product.pharmacy_id, 10) !== pharmacyId) {
-      throw createHttpError(400, "product_id does not belong to pharmacy_id");
+      throw createHttpError(400, "product_id no pertenece a pharmacy_id");
     }
 
     pharmacyId = Number.parseInt(product.pharmacy_id, 10);
@@ -429,7 +429,7 @@ export const createBranchProduct = async (data, actorUserId) => {
   const product = await getProductById(productId);
 
   if (Number.parseInt(branch.pharmacy_id, 10) !== Number.parseInt(product.pharmacy_id, 10)) {
-    throw createHttpError(400, "Branch and product must belong to the same pharmacy");
+    throw createHttpError(400, "La sucursal y el producto deben pertenecer a la misma farmacia");
   }
 
   assertPharmacyAccess({ actor, pharmacyId: branch.pharmacy_id });
@@ -438,14 +438,14 @@ export const createBranchProduct = async (data, actorUserId) => {
   if (initialCurrentStock > 0) {
     throw createHttpError(
       400,
-      "current_stock cannot be initialized manually. Use inventory lot endpoints to load stock"
+      "current_stock no puede inicializarse manualmente. Usa los endpoints de lotes de inventario para cargar stock"
     );
   }
 
   if (initialReservedStock > 0) {
     throw createHttpError(
       400,
-      "reserved_stock cannot be initialized manually when the branch product has no stock"
+      "reserved_stock no puede inicializarse manualmente cuando el producto de sucursal no tiene stock"
     );
   }
 
@@ -485,7 +485,7 @@ export const updateBranchProduct = async (id, data, actorUserId) => {
   const currentBranchProduct = await getBranchProductById(branchProductId);
 
   if (!currentBranchProduct) {
-    throw createHttpError(404, "Branch product not found");
+    throw createHttpError(404, "Producto de sucursal no encontrado");
   }
 
   assertPharmacyAccess({ actor, pharmacyId: currentBranchProduct.pharmacy_id });
@@ -531,13 +531,13 @@ export const updateBranchProduct = async (id, data, actorUserId) => {
   if (Object.prototype.hasOwnProperty.call(data, "status")) {
     const status = normalizeStatus(data.status, false);
     if (!status) {
-      throw createHttpError(400, "status cannot be empty");
+      throw createHttpError(400, "El estado no puede estar vacío");
     }
     payload.status = status;
   }
 
   if (Object.keys(payload).length === 0) {
-    throw createHttpError(400, "No valid fields provided for update");
+    throw createHttpError(400, "No se proporcionaron campos válidos para actualizar");
   }
 
   payload.updated_by = actor.id;

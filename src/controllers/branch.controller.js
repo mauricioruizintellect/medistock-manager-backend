@@ -5,7 +5,7 @@ export const createBranchHandler = async (req, res, next) => {
     const branch = await createBranch(req.body, req.user.userId);
 
     res.status(201).json({
-      message: "Branch created successfully",
+      message: "Sucursal creada correctamente",
       branch,
     });
   } catch (error) {
@@ -28,7 +28,7 @@ export const updateBranchHandler = async (req, res, next) => {
     const branch = await updateBranch(req.params.id, req.body, req.user.userId);
 
     res.status(200).json({
-      message: "Branch updated successfully",
+      message: "Sucursal actualizada correctamente",
       branch,
     });
   } catch (error) {

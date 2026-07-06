@@ -22,7 +22,7 @@ const normalizeName = (value, isRequired = false) => {
   const normalized = normalizeStringField(value);
 
   if (isRequired && !normalized) {
-    throw createHttpError(400, "Pharmacy name is required");
+    throw createHttpError(400, "El nombre de la farmacia es obligatorio");
   }
 
   return normalized;
@@ -37,7 +37,7 @@ const normalizeStatus = (value, isRequired = false) => {
   const normalized = String(value).trim().toLowerCase();
 
   if (!ALLOWED_STATUS.has(normalized)) {
-    throw createHttpError(400, "Invalid status. Allowed values: active, inactive");
+    throw createHttpError(400, "Estado inválido. Valores permitidos: active, inactive");
   }
 
   return normalized;
@@ -47,7 +47,7 @@ const normalizeActorUserId = (actorUserId) => {
   const normalized = Number.parseInt(actorUserId, 10);
 
   if (Number.isNaN(normalized) || normalized <= 0) {
-    throw createHttpError(401, "Invalid authenticated user");
+    throw createHttpError(401, "Usuario autenticado inválido");
   }
 
   return normalized;
@@ -75,11 +75,11 @@ const getActorContextById = async (userId) => {
   const actor = rows[0];
 
   if (!actor) {
-    throw createHttpError(401, "Authenticated user not found");
+    throw createHttpError(401, "Usuario autenticado no encontrado");
   }
 
   if (String(actor.status).toLowerCase() !== "active") {
-    throw createHttpError(403, "Authenticated user is inactive");
+    throw createHttpError(403, "El usuario autenticado está inactivo");
   }
 
   return {
@@ -93,11 +93,11 @@ const assertPharmacyAccess = (actor, pharmacyId) => {
   if (actor.is_super_admin) return;
 
   if (!actor.pharmacy_id) {
-    throw createHttpError(403, "User has no assigned pharmacy");
+    throw createHttpError(403, "El usuario no tiene una farmacia asignada");
   }
 
   if (Number.parseInt(actor.pharmacy_id, 10) !== Number.parseInt(pharmacyId, 10)) {
-    throw createHttpError(403, "You can only access your assigned pharmacy");
+    throw createHttpError(403, "Solo puedes acceder a tu farmacia asignada");
   }
 };
 
@@ -125,7 +125,7 @@ const buildUpdatePayload = (data) => {
   if (Object.prototype.hasOwnProperty.call(data, "name")) {
     const name = normalizeName(data.name, false);
     if (!name) {
-      throw createHttpError(400, "Pharmacy name cannot be empty");
+      throw createHttpError(400, "El nombre de la farmacia no puede estar vacío");
     }
     payload.name = name;
   }
@@ -142,7 +142,7 @@ const buildUpdatePayload = (data) => {
   }
 
   if (Object.keys(payload).length === 0) {
-    throw createHttpError(400, "No valid fields provided for update");
+    throw createHttpError(400, "No se proporcionaron campos válidos para actualizar");
   }
 
   return payload;
@@ -152,7 +152,7 @@ export const getPharmacyById = async (pharmacyId, actorUserId = null) => {
   const pharmacyIdNumber = Number.parseInt(pharmacyId, 10);
 
   if (Number.isNaN(pharmacyIdNumber) || pharmacyIdNumber <= 0) {
-    throw createHttpError(400, "Invalid pharmacy id");
+    throw createHttpError(400, "ID de farmacia inválido");
   }
 
   const [rows] = await pool.execute(
@@ -212,7 +212,7 @@ const ensureUniqueName = async (name, currentId = null) => {
   );
 
   if (existingRows.length > 0) {
-    throw createHttpError(409, "Pharmacy already exists");
+    throw createHttpError(409, "La farmacia ya existe");
   }
 };
 
@@ -236,13 +236,13 @@ export const updatePharmacy = async (pharmacyId, data) => {
   const pharmacyIdNumber = Number.parseInt(pharmacyId, 10);
 
   if (Number.isNaN(pharmacyIdNumber) || pharmacyIdNumber <= 0) {
-    throw createHttpError(400, "Invalid pharmacy id");
+    throw createHttpError(400, "ID de farmacia inválido");
   }
 
   const actor = await getActorContextById(data.actorUserId);
   const currentPharmacy = await getPharmacyById(pharmacyIdNumber);
   if (!currentPharmacy) {
-    throw createHttpError(404, "Pharmacy not found");
+    throw createHttpError(404, "Farmacia no encontrada");
   }
 
   assertPharmacyAccess(actor, currentPharmacy.id);

@@ -5,7 +5,7 @@ export const createSaleHandler = async (req, res, next) => {
     const sale = await createSale(req.body, req.user.userId);
 
     res.status(201).json({
-      message: "Sale created successfully",
+      message: "Venta registrada correctamente",
       sale,
     });
   } catch (error) {

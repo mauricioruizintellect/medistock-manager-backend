@@ -25,7 +25,7 @@ app.use(
         return callback(null, true);
       }
 
-      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+      return callback(new Error(`El origen ${origin} no está permitido por CORS`));
     },
   })
 );
@@ -37,14 +37,14 @@ app.use("/api/v1/auth", authPublicRoutes);
 app.use("/api/v1", apiRoutes);
 
 app.use((_req, _res, next) => {
-  const error = new Error("Route not found");
+  const error = new Error("Ruta no encontrada");
   error.status = 404;
   next(error);
 });
 
 app.use((error, _req, res, _next) => {
   const status = error.status || 500;
-  const message = error.message || "Internal Server Error";
+  const message = error.message || "Error interno del servidor";
 
   res.status(status).json({
     message,

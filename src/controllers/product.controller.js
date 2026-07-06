@@ -10,7 +10,7 @@ export const createProductHandler = async (req, res, next) => {
     const product = await createProduct(req.body, req.user.userId);
 
     res.status(201).json({
-      message: "Product created successfully",
+      message: "Producto creado correctamente",
       product,
     });
   } catch (error) {
@@ -45,7 +45,7 @@ export const updateProductHandler = async (req, res, next) => {
     const product = await updateProduct(req.params.id, req.body, req.user.userId);
 
     res.status(200).json({
-      message: "Product updated successfully",
+      message: "Producto actualizado correctamente",
       product,
     });
   } catch (error) {

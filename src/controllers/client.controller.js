@@ -32,7 +32,7 @@ export const createClientHandler = async (req, res, next) => {
     const client = await createClient(req.body, req.user.userId);
 
     res.status(201).json({
-      message: "Client created successfully",
+      message: "Cliente creado correctamente",
       client,
     });
   } catch (error) {
@@ -45,7 +45,7 @@ export const updateClientHandler = async (req, res, next) => {
     const client = await updateClient(req.params.id, req.body, req.user.userId);
 
     res.status(200).json({
-      message: "Client updated successfully",
+      message: "Cliente actualizado correctamente",
       client,
     });
   } catch (error) {

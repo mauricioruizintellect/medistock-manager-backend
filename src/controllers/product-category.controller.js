@@ -8,7 +8,7 @@ export const createCategoryHandler = async (req, res, next) => {
     const category = await createCategory(req.body, req.user.userId);
 
     res.status(201).json({
-      message: "Category created successfully",
+      message: "Categoría creada correctamente",
       category,
     });
   } catch (error) {

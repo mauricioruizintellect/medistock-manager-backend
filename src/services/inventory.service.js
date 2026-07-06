@@ -31,7 +31,7 @@ const parseOptionalInt = (value, fieldName) => {
   const parsed = Number.parseInt(value, 10);
 
   if (Number.isNaN(parsed) || parsed <= 0) {
-    throw createHttpError(400, `${fieldName} must be a positive integer`);
+    throw createHttpError(400, `${fieldName} debe ser un entero positivo`);
   }
 
   return parsed;
@@ -46,7 +46,7 @@ const normalizeMovementType = (value) => {
   if (!ALLOWED_MOVEMENT_TYPES.has(databaseValue)) {
     throw createHttpError(
       400,
-      "Invalid movement_type. Allowed values: initial_load, sale, purchase, in, out, adjustment"
+      "Tipo de movimiento inválido. Valores permitidos: initial_load, sale, purchase, in, out, adjustment"
     );
   }
 
@@ -59,7 +59,7 @@ const normalizeDate = (value, fieldName) => {
   const normalized = String(value).trim();
   const date = new Date(normalized);
   if (Number.isNaN(date.getTime())) {
-    throw createHttpError(400, `${fieldName} is invalid`);
+    throw createHttpError(400, `${fieldName} es inválido`);
   }
 
   return normalized;
@@ -86,11 +86,11 @@ const getActorContextById = async (userId) => {
 
   const actor = rows[0];
   if (!actor) {
-    throw createHttpError(401, "Authenticated user not found");
+    throw createHttpError(401, "Usuario autenticado no encontrado");
   }
 
   if (String(actor.status).toLowerCase() !== "active") {
-    throw createHttpError(403, "Authenticated user is inactive");
+    throw createHttpError(403, "El usuario autenticado está inactivo");
   }
 
   const normalized = {
@@ -103,12 +103,12 @@ const getActorContextById = async (userId) => {
   if (!canView) {
     throw createHttpError(
       403,
-      "Only SUPER_ADMIN, PHARMACY_ADMIN or BRANCH_ADMIN can view inventory"
+      "Solo SUPER_ADMIN, PHARMACY_ADMIN o BRANCH_ADMIN pueden ver el inventario"
     );
   }
 
   if (!normalized.is_super_admin && !normalized.pharmacy_id) {
-    throw createHttpError(403, "User has no assigned pharmacy");
+    throw createHttpError(403, "El usuario no tiene una farmacia asignada");
   }
 
   return normalized;
@@ -125,7 +125,7 @@ const buildInventoryScope = async (params, actor) => {
     : Number.parseInt(actor.pharmacy_id, 10);
 
   if (!actor.is_super_admin && payloadPharmacyId && payloadPharmacyId !== pharmacyId) {
-    throw createHttpError(403, "You can only view inventory from your assigned pharmacy");
+    throw createHttpError(403, "Solo puedes ver inventario de tu farmacia asignada");
   }
 
   return {
@@ -176,7 +176,7 @@ export const getInventoryStock = async (params, actorUserId) => {
     scope.branchId &&
     !assignedBranchIds.includes(Number.parseInt(scope.branchId, 10))
   ) {
-    throw createHttpError(403, "You can only view inventory from your assigned branches");
+    throw createHttpError(403, "Solo puedes ver inventario de tus sucursales asignadas");
   }
 
   const where = [];
@@ -258,7 +258,7 @@ export const getInventoryMovements = async (params, actorUserId) => {
     scope.branchId &&
     !assignedBranchIds.includes(Number.parseInt(scope.branchId, 10))
   ) {
-    throw createHttpError(403, "You can only view inventory from your assigned branches");
+    throw createHttpError(403, "Solo puedes ver inventario de tus sucursales asignadas");
   }
 
   const where = [];

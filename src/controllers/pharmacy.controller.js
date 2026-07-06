@@ -12,7 +12,7 @@ export const createPharmacyHandler = async (req, res, next) => {
     });
 
     res.status(201).json({
-      message: "Pharmacy created successfully",
+      message: "Farmacia creada correctamente",
       pharmacy,
     });
   } catch (error) {
@@ -28,7 +28,7 @@ export const updatePharmacyHandler = async (req, res, next) => {
     });
 
     res.status(200).json({
-      message: "Pharmacy updated successfully",
+      message: "Farmacia actualizada correctamente",
       pharmacy,
     });
   } catch (error) {
@@ -41,7 +41,7 @@ export const getPharmacyByIdHandler = async (req, res, next) => {
     const pharmacy = await getPharmacyById(req.params.id, req.user.userId);
 
     if (!pharmacy) {
-      const error = new Error("Pharmacy not found");
+      const error = new Error("Farmacia no encontrada");
       error.status = 404;
       throw error;
     }

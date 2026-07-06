@@ -11,19 +11,19 @@ export const authMiddleware = (req, _res, next) => {
     const authorizationHeader = req.headers.authorization;
 
     if (!authorizationHeader) {
-      throw createHttpError(401, "Authorization header is required");
+      throw createHttpError(401, "El encabezado de autorización es obligatorio");
     }
 
     const [scheme, token] = authorizationHeader.split(" ");
 
     if (scheme !== "Bearer" || !token) {
-      throw createHttpError(401, "Invalid authorization format");
+      throw createHttpError(401, "Formato de autorización inválido");
     }
 
     const jwtSecret = process.env.JWT_SECRET;
 
     if (!jwtSecret) {
-      throw createHttpError(500, "JWT_SECRET is not configured");
+      throw createHttpError(500, "JWT_SECRET no está configurado");
     }
 
     const payload = jwt.verify(token, jwtSecret);
@@ -33,7 +33,7 @@ export const authMiddleware = (req, _res, next) => {
   } catch (error) {
     if (!error.status) {
       error.status = 401;
-      error.message = "Invalid or expired token";
+      error.message = "Token inválido o expirado";
     }
 
     next(error);
@@ -46,11 +46,11 @@ const normalizeRoleCode = (value) => (value ? String(value).toUpperCase() : null
 export const requireSuperAdmin = (req, _res, next) => {
   try {
     if (!req.user) {
-      throw createHttpError(401, "Authentication required");
+      throw createHttpError(401, "Autenticación requerida");
     }
 
     if (!normalizeBoolean(req.user.is_super_admin)) {
-      throw createHttpError(403, "Only super admin can perform this action");
+      throw createHttpError(403, "Solo el superadministrador puede realizar esta acción");
     }
 
     next();
@@ -62,14 +62,14 @@ export const requireSuperAdmin = (req, _res, next) => {
 export const requireAdminOrSuperAdmin = (req, _res, next) => {
   try {
     if (!req.user) {
-      throw createHttpError(401, "Authentication required");
+      throw createHttpError(401, "Autenticación requerida");
     }
 
     const isSuperAdmin = normalizeBoolean(req.user.is_super_admin);
     const roleCode = normalizeRoleCode(req.user.role_code);
 
     if (!isSuperAdmin && roleCode !== "ADMIN") {
-      throw createHttpError(403, "Only ADMIN or super admin can perform this action");
+      throw createHttpError(403, "Solo ADMIN o el superadministrador pueden realizar esta acción");
     }
 
     next();
@@ -81,7 +81,7 @@ export const requireAdminOrSuperAdmin = (req, _res, next) => {
 export const requirePharmacyAdminOrSuperAdmin = (req, _res, next) => {
   try {
     if (!req.user) {
-      throw createHttpError(401, "Authentication required");
+      throw createHttpError(401, "Autenticación requerida");
     }
 
     const isSuperAdmin = normalizeBoolean(req.user.is_super_admin);
@@ -90,7 +90,7 @@ export const requirePharmacyAdminOrSuperAdmin = (req, _res, next) => {
     if (!isSuperAdmin && roleCode !== "PHARMACY_ADMIN") {
       throw createHttpError(
         403,
-        "Only PHARMACY_ADMIN or super admin can perform this action"
+        "Solo PHARMACY_ADMIN o el superadministrador pueden realizar esta acción"
       );
     }
 

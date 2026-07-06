@@ -31,7 +31,7 @@ const normalizeString = (value) => {
 const parseRequiredInt = (value, fieldName) => {
   const parsed = Number.parseInt(value, 10);
   if (Number.isNaN(parsed) || parsed <= 0) {
-    throw createHttpError(400, `${fieldName} is required and must be a positive integer`);
+    throw createHttpError(400, `${fieldName} es obligatorio y debe ser un entero positivo`);
   }
   return parsed;
 };
@@ -40,15 +40,15 @@ const parsePositiveNumber = (value, fieldName, allowZero = true) => {
   const parsed = Number.parseFloat(value);
 
   if (Number.isNaN(parsed)) {
-    throw createHttpError(400, `${fieldName} must be a valid number`);
+    throw createHttpError(400, `${fieldName} debe ser un número válido`);
   }
 
   if (allowZero) {
     if (parsed < 0) {
-      throw createHttpError(400, `${fieldName} must be greater than or equal to 0`);
+      throw createHttpError(400, `${fieldName} debe ser mayor o igual a 0`);
     }
   } else if (parsed <= 0) {
-    throw createHttpError(400, `${fieldName} must be greater than 0`);
+    throw createHttpError(400, `${fieldName} debe ser mayor que 0`);
   }
 
   return parsed;
@@ -56,12 +56,12 @@ const parsePositiveNumber = (value, fieldName, allowZero = true) => {
 
 const parseExpirationDate = (value) => {
   if (!value) {
-    throw createHttpError(400, "expiration_date is required");
+    throw createHttpError(400, "expiration_date es obligatorio");
   }
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
-    throw createHttpError(400, "expiration_date is invalid");
+    throw createHttpError(400, "expiration_date es inválido");
   }
 
   const today = new Date();
@@ -69,7 +69,7 @@ const parseExpirationDate = (value) => {
   date.setHours(0, 0, 0, 0);
 
   if (date <= today) {
-    throw createHttpError(400, "expiration_date must be greater than current date");
+    throw createHttpError(400, "expiration_date debe ser mayor a la fecha actual");
   }
 
   return value;
@@ -79,11 +79,11 @@ const getActorContext = async (connection, actorUserId) => {
   const actor = await findActorById(connection, actorUserId);
 
   if (!actor) {
-    throw createHttpError(401, "Authenticated user not found");
+    throw createHttpError(401, "Usuario autenticado no encontrado");
   }
 
   if (String(actor.status).toLowerCase() !== "active") {
-    throw createHttpError(403, "Authenticated user is inactive");
+    throw createHttpError(403, "El usuario autenticado está inactivo");
   }
 
   const normalized = {
@@ -96,12 +96,12 @@ const getActorContext = async (connection, actorUserId) => {
   if (!canManage) {
     throw createHttpError(
       403,
-      "Only SUPER_ADMIN, PHARMACY_ADMIN or BRANCH_ADMIN can manage inventory lots"
+      "Solo SUPER_ADMIN, PHARMACY_ADMIN o BRANCH_ADMIN pueden gestionar lotes de inventario"
     );
   }
 
   if (!normalized.is_super_admin && !normalized.pharmacy_id) {
-    throw createHttpError(403, "User has no assigned pharmacy");
+    throw createHttpError(403, "El usuario no tiene una farmacia asignada");
   }
 
   return normalized;
@@ -109,20 +109,20 @@ const getActorContext = async (connection, actorUserId) => {
 
 const normalizeItem = (rawItem, index) => {
   if (!rawItem || typeof rawItem !== "object" || Array.isArray(rawItem)) {
-    throw createHttpError(400, `Item at index ${index} must be an object`);
+    throw createHttpError(400, `El elemento en la posición ${index} debe ser un objeto`);
   }
 
   const branchProductId = parseRequiredInt(rawItem.branch_product_id, "branch_product_id");
   const lotNumber = normalizeString(rawItem.lot_number);
   if (!lotNumber) {
-    throw createHttpError(400, "lot_number is required");
+    throw createHttpError(400, "lot_number es obligatorio");
   }
 
   const initialQuantity = parsePositiveNumber(rawItem.initial_quantity, "initial_quantity", false);
   const currentQuantity = parsePositiveNumber(rawItem.current_quantity, "current_quantity", true);
 
   if (currentQuantity !== initialQuantity) {
-    throw createHttpError(400, "current_quantity must be equal to initial_quantity");
+    throw createHttpError(400, "current_quantity debe ser igual a initial_quantity");
   }
 
   return {
@@ -141,13 +141,13 @@ const normalizeItem = (rawItem, index) => {
 
 const normalizeReceiveItem = (rawItem, index) => {
   if (!rawItem || typeof rawItem !== "object" || Array.isArray(rawItem)) {
-    throw createHttpError(400, `Item at index ${index} must be an object`);
+    throw createHttpError(400, `El elemento en la posición ${index} debe ser un objeto`);
   }
 
   const branchProductId = parseRequiredInt(rawItem.branch_product_id, "branch_product_id");
   const lotNumber = normalizeString(rawItem.lot_number);
   if (!lotNumber) {
-    throw createHttpError(400, "lot_number is required");
+    throw createHttpError(400, "lot_number es obligatorio");
   }
 
   const quantity = parsePositiveNumber(rawItem.quantity, "quantity", false);
@@ -170,7 +170,7 @@ const normalizeReceiveItem = (rawItem, index) => {
 const normalizePayload = (payload) => {
   if (Array.isArray(payload)) {
     if (payload.length === 0) {
-      throw createHttpError(400, "Payload array cannot be empty");
+      throw createHttpError(400, "El arreglo del payload no puede estar vacío");
     }
 
     return {
@@ -188,7 +188,7 @@ const normalizePayload = (payload) => {
 const normalizeReceivePayload = (payload) => {
   if (Array.isArray(payload)) {
     if (payload.length === 0) {
-      throw createHttpError(400, "Payload array cannot be empty");
+      throw createHttpError(400, "El arreglo del payload no puede estar vacío");
     }
 
     return {
@@ -231,7 +231,7 @@ const assertCanManageBranchProductInventory = (actor, branchProduct) => {
   ) {
     throw createHttpError(
       403,
-      `You can only load inventory for your assigned pharmacy (branch_product_id ${branchProduct.id})`
+      `Solo puedes cargar inventario para tu farmacia asignada (branch_product_id ${branchProduct.id})`
     );
   }
 };
@@ -250,7 +250,7 @@ export const initialLoadInventoryLots = async (payload, actorUserId) => {
       const branchProduct = await findBranchProductById(connection, item.branch_product_id);
 
       if (!branchProduct) {
-        throw createHttpError(400, `branch_product_id ${item.branch_product_id} does not exist`);
+        throw createHttpError(400, `branch_product_id ${item.branch_product_id} no existe`);
       }
 
       assertCanManageBranchProductInventory(actor, branchProduct);
@@ -264,7 +264,7 @@ export const initialLoadInventoryLots = async (payload, actorUserId) => {
       if (duplicateLot) {
         throw createHttpError(
           409,
-          `lot_number '${item.lot_number}' already exists for branch_product_id ${item.branch_product_id}`
+          `lot_number '${item.lot_number}' ya existe para branch_product_id ${item.branch_product_id}`
         );
       }
 
@@ -311,7 +311,7 @@ export const initialLoadInventoryLots = async (payload, actorUserId) => {
     await connection.rollback();
 
     if (error.code === "ER_DUP_ENTRY" && !error.status) {
-      throw createHttpError(409, "Duplicate record detected while processing initial load");
+      throw createHttpError(409, "Se detectó un registro duplicado al procesar la carga inicial");
     }
 
     throw error;
@@ -334,7 +334,7 @@ export const receiveInventoryLots = async (payload, actorUserId) => {
       const branchProduct = await findBranchProductById(connection, item.branch_product_id);
 
       if (!branchProduct) {
-        throw createHttpError(400, `branch_product_id ${item.branch_product_id} does not exist`);
+        throw createHttpError(400, `branch_product_id ${item.branch_product_id} no existe`);
       }
 
       assertCanManageBranchProductInventory(actor, branchProduct);
@@ -348,7 +348,7 @@ export const receiveInventoryLots = async (payload, actorUserId) => {
       if (duplicateLot) {
         throw createHttpError(
           409,
-          `lot_number '${item.lot_number}' already exists for branch_product_id ${item.branch_product_id}`
+          `lot_number '${item.lot_number}' ya existe para branch_product_id ${item.branch_product_id}`
         );
       }
 
@@ -395,7 +395,7 @@ export const receiveInventoryLots = async (payload, actorUserId) => {
     await connection.rollback();
 
     if (error.code === "ER_DUP_ENTRY" && !error.status) {
-      throw createHttpError(409, "Duplicate record detected while receiving inventory lots");
+      throw createHttpError(409, "Se detectó un registro duplicado al recibir lotes de inventario");
     }
 
     throw error;

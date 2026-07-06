@@ -15,7 +15,7 @@ const normalizeRoleCode = (value) => (value ? String(value).toUpperCase() : null
 const parseRequiredInt = (value, fieldName) => {
   const parsed = Number.parseInt(value, 10);
   if (Number.isNaN(parsed) || parsed <= 0) {
-    throw createHttpError(400, `${fieldName} is required and must be a positive integer`);
+    throw createHttpError(400, `${fieldName} es obligatorio y debe ser un entero positivo`);
   }
   return parsed;
 };
@@ -32,7 +32,7 @@ const normalizeStatus = (value, required = false) => {
 
   const normalized = String(value).trim().toLowerCase();
   if (!ALLOWED_STATUS.has(normalized)) {
-    throw createHttpError(400, "Invalid status. Allowed values: active, inactive");
+    throw createHttpError(400, "Estado inválido. Valores permitidos: active, inactive");
   }
 
   return normalized;
@@ -65,11 +65,11 @@ const getActorContextById = async (userId, mode = "manage") => {
 
   const actor = rows[0];
   if (!actor) {
-    throw createHttpError(401, "Authenticated user not found");
+    throw createHttpError(401, "Usuario autenticado no encontrado");
   }
 
   if (String(actor.status).toLowerCase() !== "active") {
-    throw createHttpError(403, "Authenticated user is inactive");
+    throw createHttpError(403, "El usuario autenticado está inactivo");
   }
 
   const normalized = {
@@ -80,7 +80,7 @@ const getActorContextById = async (userId, mode = "manage") => {
 
   if (mode === "read") {
     if (!normalized.is_super_admin && !normalized.pharmacy_id) {
-      throw createHttpError(403, "User has no assigned pharmacy");
+      throw createHttpError(403, "El usuario no tiene una farmacia asignada");
     }
 
     return normalized;
@@ -88,11 +88,11 @@ const getActorContextById = async (userId, mode = "manage") => {
 
   const isAllowed = normalized.is_super_admin || normalized.role_code === "PHARMACY_ADMIN";
   if (!isAllowed) {
-    throw createHttpError(403, "Only super admin or PHARMACY_ADMIN can manage user branch roles");
+    throw createHttpError(403, "Solo el superadministrador o PHARMACY_ADMIN pueden gestionar asignaciones de sucursal por usuario");
   }
 
   if (!normalized.is_super_admin && !normalized.pharmacy_id) {
-    throw createHttpError(403, "PHARMACY_ADMIN user has no assigned pharmacy");
+    throw createHttpError(403, "El usuario PHARMACY_ADMIN no tiene una farmacia asignada");
   }
 
   return normalized;
@@ -110,7 +110,7 @@ const getRoleById = async (roleId) => {
   );
 
   if (!rows[0]) {
-    throw createHttpError(400, "Role not found");
+    throw createHttpError(400, "Rol no encontrado");
   }
 
   return rows[0];
@@ -120,14 +120,14 @@ const ensurePharmacyExists = async (pharmacyId) => {
   const [rows] = await pool.execute("SELECT id FROM pharmacies WHERE id = ? LIMIT 1", [pharmacyId]);
 
   if (rows.length === 0) {
-    throw createHttpError(400, "Pharmacy not found");
+    throw createHttpError(400, "Farmacia no encontrada");
   }
 };
 
 const validateAssignableRole = (role) => {
   const roleCode = normalizeRoleCode(role.code);
   if (!ALLOWED_ROLE_CODES.has(roleCode)) {
-    throw createHttpError(400, "Only CASHIER and BRANCH_ADMIN roles can be assigned");
+    throw createHttpError(400, "Solo se pueden asignar los roles CASHIER y BRANCH_ADMIN");
   }
 };
 
@@ -143,7 +143,7 @@ const getUserById = async (userId) => {
   );
 
   if (!rows[0]) {
-    throw createHttpError(400, "User not found");
+    throw createHttpError(400, "Usuario no encontrado");
   }
 
   return rows[0];
@@ -161,7 +161,7 @@ const getBranchById = async (branchId) => {
   );
 
   if (!rows[0]) {
-    throw createHttpError(400, "Branch not found");
+    throw createHttpError(400, "Sucursal no encontrada");
   }
 
   return rows[0];
@@ -169,7 +169,7 @@ const getBranchById = async (branchId) => {
 
 const assertPharmacyAccess = ({ actor, user, branch }) => {
   if (user.pharmacy_id !== branch.pharmacy_id) {
-    throw createHttpError(400, "User and branch must belong to the same pharmacy");
+    throw createHttpError(400, "El usuario y la sucursal deben pertenecer a la misma farmacia");
   }
 
   if (!actor.is_super_admin) {
@@ -177,7 +177,7 @@ const assertPharmacyAccess = ({ actor, user, branch }) => {
     const targetPharmacyId = Number.parseInt(branch.pharmacy_id, 10);
 
     if (actorPharmacyId !== targetPharmacyId) {
-      throw createHttpError(403, "PHARMACY_ADMIN can only manage records in assigned pharmacy");
+      throw createHttpError(403, "PHARMACY_ADMIN solo puede gestionar registros de su farmacia asignada");
     }
   }
 };
@@ -186,7 +186,7 @@ const assertActorCanAccessPharmacy = (actor, pharmacyId) => {
   if (actor.is_super_admin) return;
 
   if (Number.parseInt(actor.pharmacy_id, 10) !== Number.parseInt(pharmacyId, 10)) {
-    throw createHttpError(403, "PHARMACY_ADMIN can only manage records in assigned pharmacy");
+    throw createHttpError(403, "PHARMACY_ADMIN solo puede gestionar registros de su farmacia asignada");
   }
 };
 
@@ -230,7 +230,7 @@ export const getUserBranchRoles = async (params, actorUserId) => {
 
   if (!canManageAssignments) {
     if (userId && userId !== actor.id) {
-      throw createHttpError(403, "You can only view your own branch assignments");
+      throw createHttpError(403, "Solo puedes ver tus propias asignaciones de sucursal");
     }
 
     userId = actor.id;
@@ -246,7 +246,7 @@ export const getUserBranchRoles = async (params, actorUserId) => {
     assertActorCanAccessPharmacy(actor, branch.pharmacy_id);
 
     if (pharmacyId && Number.parseInt(branch.pharmacy_id, 10) !== pharmacyId) {
-      throw createHttpError(400, "branch_id does not belong to pharmacy_id");
+      throw createHttpError(400, "branch_id no pertenece a pharmacy_id");
     }
 
     pharmacyId = Number.parseInt(branch.pharmacy_id, 10);
@@ -257,7 +257,7 @@ export const getUserBranchRoles = async (params, actorUserId) => {
     assertActorCanAccessPharmacy(actor, user.pharmacy_id);
 
     if (pharmacyId && Number.parseInt(user.pharmacy_id, 10) !== pharmacyId) {
-      throw createHttpError(400, "user_id does not belong to pharmacy_id");
+      throw createHttpError(400, "user_id no pertenece a pharmacy_id");
     }
 
     pharmacyId = Number.parseInt(user.pharmacy_id, 10);
@@ -372,7 +372,7 @@ const getUserBranchRoleResponseById = async (id) => {
   );
 
   if (!rows[0]) {
-    throw createHttpError(404, "User branch role not found");
+    throw createHttpError(404, "Asignación de sucursal de usuario no encontrada");
   }
 
   return {
@@ -395,7 +395,7 @@ const ensureUniqueRecord = async ({ userId, branchId, roleId, excludedId = null 
   );
 
   if (rows.length > 0) {
-    throw createHttpError(409, "This user already has that role assigned for this branch");
+    throw createHttpError(409, "Este usuario ya tiene ese rol asignado para esta sucursal");
   }
 };
 
@@ -440,7 +440,7 @@ export const deleteUserBranchRole = async (id, actorUserId) => {
   const current = await getUserBranchRoleById(recordId);
 
   if (!current) {
-    throw createHttpError(404, "User branch role not found");
+    throw createHttpError(404, "Asignación de sucursal de usuario no encontrada");
   }
 
   const user = await getUserById(current.user_id);

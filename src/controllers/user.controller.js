@@ -10,7 +10,7 @@ export const createUserHandler = async (req, res, next) => {
     const user = await createUser(req.body, req.user.userId);
 
     res.status(201).json({
-      message: "User created successfully",
+      message: "Usuario creado correctamente",
       user,
     });
   } catch (error) {
@@ -23,7 +23,7 @@ export const updateUserHandler = async (req, res, next) => {
     const user = await updateUser(req.params.id, req.body, req.user.userId);
 
     res.status(200).json({
-      message: "User updated successfully",
+      message: "Usuario actualizado correctamente",
       user,
     });
   } catch (error) {

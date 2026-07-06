@@ -8,7 +8,7 @@ export const initialLoadInventoryLotsHandler = async (req, res, next) => {
     const result = await initialLoadInventoryLots(req.body, req.user.userId);
 
     res.status(201).json({
-      message: "Initial inventory load completed successfully",
+      message: "Carga inicial de inventario completada correctamente",
       ...result,
     });
   } catch (error) {
@@ -21,7 +21,7 @@ export const receiveInventoryLotsHandler = async (req, res, next) => {
     const result = await receiveInventoryLots(req.body, req.user.userId);
 
     res.status(201).json({
-      message: "Inventory lots received successfully",
+      message: "Lotes de inventario recibidos correctamente",
       ...result,
     });
   } catch (error) {

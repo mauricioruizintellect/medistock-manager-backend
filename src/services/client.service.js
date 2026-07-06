@@ -28,7 +28,7 @@ const normalizeNullableString = (value) => {
 const normalizeRequiredString = (value, fieldLabel) => {
   const normalized = normalizeString(value);
   if (!normalized) {
-    throw createHttpError(400, `${fieldLabel} is required`);
+    throw createHttpError(400, `${fieldLabel} es obligatorio`);
   }
   return normalized;
 };
@@ -37,13 +37,13 @@ const normalizeEmail = (value, required = false) => {
   const normalized = normalizeString(value)?.toLowerCase();
 
   if (required && !normalized) {
-    throw createHttpError(400, "email is required");
+    throw createHttpError(400, "El correo electrónico es obligatorio");
   }
 
   if (!normalized) return normalized;
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
-    throw createHttpError(400, "Invalid email format");
+    throw createHttpError(400, "Formato de correo electrónico inválido");
   }
 
   return normalized;
@@ -61,7 +61,7 @@ const normalizeStatus = (value, required = false) => {
 
   const normalized = String(value).trim().toLowerCase();
   if (!ALLOWED_STATUS.has(normalized)) {
-    throw createHttpError(400, "Invalid status. Allowed values: active, inactive");
+    throw createHttpError(400, "Estado inválido. Valores permitidos: active, inactive");
   }
 
   return normalized;
@@ -72,7 +72,7 @@ const parseOptionalInt = (value, fieldName) => {
   const parsed = Number.parseInt(value, 10);
 
   if (Number.isNaN(parsed) || parsed <= 0) {
-    throw createHttpError(400, `${fieldName} must be a positive integer`);
+    throw createHttpError(400, `${fieldName} debe ser un entero positivo`);
   }
 
   return parsed;
@@ -81,7 +81,7 @@ const parseOptionalInt = (value, fieldName) => {
 const parseRequiredInt = (value, fieldName) => {
   const parsed = parseOptionalInt(value, fieldName);
   if (!parsed) {
-    throw createHttpError(400, `${fieldName} is required`);
+    throw createHttpError(400, `${fieldName} es obligatorio`);
   }
   return parsed;
 };
@@ -111,11 +111,11 @@ const getActorContextById = async (userId) => {
 
   const actor = rows[0];
   if (!actor) {
-    throw createHttpError(401, "Authenticated user not found");
+    throw createHttpError(401, "Usuario autenticado no encontrado");
   }
 
   if (String(actor.status).toLowerCase() !== "active") {
-    throw createHttpError(403, "Authenticated user is inactive");
+    throw createHttpError(403, "El usuario autenticado está inactivo");
   }
 
   const normalizedActor = {
@@ -130,12 +130,12 @@ const getActorContextById = async (userId) => {
   if (!canManageClients) {
     throw createHttpError(
       403,
-      "Only SUPER_ADMIN, PHARMACY_ADMIN, BRANCH_ADMIN or CASHIER can manage clients"
+      "Solo SUPER_ADMIN, PHARMACY_ADMIN, BRANCH_ADMIN o CASHIER pueden gestionar clientes"
     );
   }
 
   if (!normalizedActor.is_super_admin && !normalizedActor.pharmacy_id) {
-    throw createHttpError(403, "User has no assigned pharmacy");
+    throw createHttpError(403, "El usuario no tiene una farmacia asignada");
   }
 
   return normalizedActor;
@@ -145,7 +145,7 @@ const ensurePharmacyExists = async (pharmacyId) => {
   const [rows] = await pool.execute("SELECT id FROM pharmacies WHERE id = ? LIMIT 1", [pharmacyId]);
 
   if (rows.length === 0) {
-    throw createHttpError(400, "Pharmacy not found");
+    throw createHttpError(400, "Farmacia no encontrada");
   }
 };
 
@@ -153,7 +153,7 @@ const assertPharmacyAccess = (actor, pharmacyId) => {
   if (actor.is_super_admin) return;
 
   if (Number.parseInt(actor.pharmacy_id, 10) !== Number.parseInt(pharmacyId, 10)) {
-    throw createHttpError(403, "You can only manage clients in your assigned pharmacy");
+    throw createHttpError(403, "Solo puedes gestionar clientes de tu farmacia asignada");
   }
 };
 
@@ -227,7 +227,7 @@ const getClientResponseById = async (clientId) => {
   );
 
   if (!rows[0]) {
-    throw createHttpError(404, "Client not found");
+    throw createHttpError(404, "Cliente no encontrado");
   }
 
   return mapClientRow(rows[0]);
@@ -271,7 +271,7 @@ const ensureUniqueClientIdentity = async ({ pharmacyId, documentNumber, email, e
     );
 
     if (rows.length > 0) {
-      throw createHttpError(409, "A client with that document number already exists in this pharmacy");
+      throw createHttpError(409, "Ya existe un cliente con ese número de documento en esta farmacia");
     }
   }
 
@@ -288,7 +288,7 @@ const ensureUniqueClientIdentity = async ({ pharmacyId, documentNumber, email, e
     );
 
     if (rows.length > 0) {
-      throw createHttpError(409, "A client with that email already exists in this pharmacy");
+      throw createHttpError(409, "Ya existe un cliente con ese correo electrónico en esta farmacia");
     }
   }
 };
@@ -300,7 +300,7 @@ const buildCreatePayload = async (data, actor) => {
     : Number.parseInt(actor.pharmacy_id, 10);
 
   if (!pharmacyId) {
-    throw createHttpError(400, "pharmacy_id is required");
+    throw createHttpError(400, "pharmacy_id es obligatorio");
   }
 
   await ensurePharmacyExists(pharmacyId);
@@ -340,7 +340,7 @@ export const getClients = async (params, actorUserId) => {
   const limit = parseOptionalLimit(params.limit);
 
   if (!pharmacyId) {
-    throw createHttpError(400, "pharmacy_id is required");
+    throw createHttpError(400, "pharmacy_id es obligatorio");
   }
 
   await ensurePharmacyExists(pharmacyId);
@@ -436,7 +436,7 @@ export const updateClient = async (id, data, actorUserId) => {
   const currentClient = await getClientRecordById(clientId);
 
   if (!currentClient) {
-    throw createHttpError(404, "Client not found");
+    throw createHttpError(404, "Cliente no encontrado");
   }
 
   assertPharmacyAccess(actor, currentClient.pharmacy_id);
@@ -474,13 +474,13 @@ export const updateClient = async (id, data, actorUserId) => {
   if (Object.prototype.hasOwnProperty.call(data, "status")) {
     const status = normalizeStatus(data.status, false);
     if (!status) {
-      throw createHttpError(400, "status cannot be empty");
+      throw createHttpError(400, "El estado no puede estar vacío");
     }
     payload.status = status;
   }
 
   if (Object.keys(payload).length === 0) {
-    throw createHttpError(400, "No valid fields provided for update");
+    throw createHttpError(400, "No se proporcionaron campos válidos para actualizar");
   }
 
   const nextDocumentNumber =

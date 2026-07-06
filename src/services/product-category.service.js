@@ -23,7 +23,7 @@ const normalizeString = (value) => {
 const normalizeRequiredString = (value, fieldName) => {
   const normalized = normalizeString(value);
   if (!normalized) {
-    throw createHttpError(400, `${fieldName} is required`);
+    throw createHttpError(400, `${fieldName} es obligatorio`);
   }
   return normalized;
 };
@@ -35,7 +35,7 @@ const normalizeStatus = (value, required = false) => {
 
   const normalized = String(value).trim().toLowerCase();
   if (!ALLOWED_STATUS.has(normalized)) {
-    throw createHttpError(400, "Invalid status. Allowed values: active, inactive");
+    throw createHttpError(400, "Estado inválido. Valores permitidos: active, inactive");
   }
 
   return normalized;
@@ -44,7 +44,7 @@ const normalizeStatus = (value, required = false) => {
 const parseRequiredInt = (value, fieldName) => {
   const parsed = Number.parseInt(value, 10);
   if (Number.isNaN(parsed) || parsed <= 0) {
-    throw createHttpError(400, `${fieldName} is required and must be a positive integer`);
+    throw createHttpError(400, `${fieldName} es obligatorio y debe ser un entero positivo`);
   }
   return parsed;
 };
@@ -73,11 +73,11 @@ const getActorContextById = async (userId) => {
 
   const actor = rows[0];
   if (!actor) {
-    throw createHttpError(401, "Authenticated user not found");
+    throw createHttpError(401, "Usuario autenticado no encontrado");
   }
 
   if (String(actor.status).toLowerCase() !== "active") {
-    throw createHttpError(403, "Authenticated user is inactive");
+    throw createHttpError(403, "El usuario autenticado está inactivo");
   }
 
   const normalized = {
@@ -90,12 +90,12 @@ const getActorContextById = async (userId) => {
   if (!canManage) {
     throw createHttpError(
       403,
-      "Only SUPER_ADMIN, PHARMACY_ADMIN or BRANCH_ADMIN can manage categories"
+      "Solo SUPER_ADMIN, PHARMACY_ADMIN o BRANCH_ADMIN pueden gestionar categorías"
     );
   }
 
   if (!normalized.is_super_admin && !normalized.pharmacy_id) {
-    throw createHttpError(403, "User has no assigned pharmacy");
+    throw createHttpError(403, "El usuario no tiene una farmacia asignada");
   }
 
   return normalized;
@@ -104,7 +104,7 @@ const getActorContextById = async (userId) => {
 const ensurePharmacyExists = async (pharmacyId) => {
   const [rows] = await pool.execute("SELECT id FROM pharmacies WHERE id = ? LIMIT 1", [pharmacyId]);
   if (rows.length === 0) {
-    throw createHttpError(400, "Pharmacy not found");
+    throw createHttpError(400, "Farmacia no encontrada");
   }
 };
 
@@ -120,7 +120,7 @@ const ensureUniqueCategoryNameInPharmacy = async (pharmacyId, name) => {
   );
 
   if (rows.length > 0) {
-    throw createHttpError(409, "Category name already exists in this pharmacy");
+    throw createHttpError(409, "El nombre de la categoría ya existe en esta farmacia");
   }
 };
 
@@ -158,7 +158,7 @@ export const createCategory = async (data, actorUserId) => {
     : Number.parseInt(actor.pharmacy_id, 10);
 
   if (!actor.is_super_admin && payloadPharmacyId && payloadPharmacyId !== pharmacyId) {
-    throw createHttpError(403, "You can only create categories in your assigned pharmacy");
+    throw createHttpError(403, "Solo puedes crear categorías en tu farmacia asignada");
   }
 
   await ensurePharmacyExists(pharmacyId);
@@ -196,7 +196,7 @@ export const getCategoriesByPharmacy = async (params, actorUserId) => {
     : Number.parseInt(actor.pharmacy_id, 10);
 
   if (!actor.is_super_admin && payloadPharmacyId && payloadPharmacyId !== pharmacyId) {
-    throw createHttpError(403, "You can only view categories from your assigned pharmacy");
+    throw createHttpError(403, "Solo puedes ver categorías de tu farmacia asignada");
   }
 
   await ensurePharmacyExists(pharmacyId);

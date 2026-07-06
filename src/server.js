@@ -19,7 +19,7 @@ server.on("error", (error) => {
 const shutdown = (signal) => {
   console.log(`${signal} received. Shutting down server...`);
   server.close(() => {
-    console.log("Server closed successfully.");
+    console.log("Servidor cerrado correctamente.");
     process.exit(0);
   });
 };

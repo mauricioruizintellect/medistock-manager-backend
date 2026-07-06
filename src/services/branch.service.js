@@ -22,7 +22,7 @@ const normalizeString = (value) => {
 const normalizeRequiredString = (value, fieldLabel) => {
   const normalized = normalizeString(value);
   if (!normalized) {
-    throw createHttpError(400, `${fieldLabel} is required`);
+    throw createHttpError(400, `${fieldLabel} es obligatorio`);
   }
   return normalized;
 };
@@ -32,7 +32,7 @@ const normalizeEmail = (value) => {
   if (!normalized) return normalized;
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
-    throw createHttpError(400, "Invalid email format");
+    throw createHttpError(400, "Formato de correo electrónico inválido");
   }
 
   return normalized;
@@ -43,7 +43,7 @@ const parseOptionalInt = (value, fieldName) => {
   const parsed = Number.parseInt(value, 10);
 
   if (Number.isNaN(parsed) || parsed <= 0) {
-    throw createHttpError(400, `${fieldName} must be a positive integer`);
+    throw createHttpError(400, `${fieldName} debe ser un entero positivo`);
   }
 
   return parsed;
@@ -52,7 +52,7 @@ const parseOptionalInt = (value, fieldName) => {
 const parseRequiredInt = (value, fieldName) => {
   const parsed = parseOptionalInt(value, fieldName);
   if (!parsed) {
-    throw createHttpError(400, `${fieldName} is required`);
+    throw createHttpError(400, `${fieldName} es obligatorio`);
   }
   return parsed;
 };
@@ -64,7 +64,7 @@ const normalizeStatus = (value, required = false) => {
 
   const normalized = String(value).trim().toLowerCase();
   if (!ALLOWED_STATUS.has(normalized)) {
-    throw createHttpError(400, "Invalid status. Allowed values: active, inactive");
+    throw createHttpError(400, "Estado inválido. Valores permitidos: active, inactive");
   }
 
   return normalized;
@@ -97,11 +97,11 @@ const getActorContextById = async (userId) => {
 
   const user = rows[0];
   if (!user) {
-    throw createHttpError(401, "Authenticated user not found");
+    throw createHttpError(401, "Usuario autenticado no encontrado");
   }
 
   if (String(user.status).toLowerCase() !== "active") {
-    throw createHttpError(403, "Authenticated user is inactive");
+    throw createHttpError(403, "El usuario autenticado está inactivo");
   }
 
   const normalized = {
@@ -112,11 +112,11 @@ const getActorContextById = async (userId) => {
 
   const isAllowedRole = normalized.is_super_admin || normalized.role_code === "PHARMACY_ADMIN";
   if (!isAllowedRole) {
-    throw createHttpError(403, "Only super admin or PHARMACY_ADMIN can manage branches");
+    throw createHttpError(403, "Solo el superadministrador o PHARMACY_ADMIN pueden gestionar sucursales");
   }
 
   if (!normalized.is_super_admin && !normalized.pharmacy_id) {
-    throw createHttpError(403, "PHARMACY_ADMIN user has no assigned pharmacy");
+    throw createHttpError(403, "El usuario PHARMACY_ADMIN no tiene una farmacia asignada");
   }
 
   return normalized;
@@ -126,7 +126,7 @@ const ensurePharmacyExists = async (pharmacyId) => {
   const [rows] = await pool.execute("SELECT id FROM pharmacies WHERE id = ? LIMIT 1", [pharmacyId]);
 
   if (rows.length === 0) {
-    throw createHttpError(400, "Pharmacy not found");
+    throw createHttpError(400, "Farmacia no encontrada");
   }
 };
 
@@ -175,7 +175,7 @@ const ensureUniqueBranchCode = async (pharmacyId, code, excludedId = null) => {
   );
 
   if (rows.length > 0) {
-    throw createHttpError(409, "Branch code already exists for this pharmacy");
+    throw createHttpError(409, "El código de la sucursal ya existe para esta farmacia");
   }
 };
 
@@ -183,7 +183,7 @@ const assertPharmacyAccess = (actor, pharmacyId) => {
   if (actor.is_super_admin) return;
 
   if (Number.parseInt(actor.pharmacy_id, 10) !== Number.parseInt(pharmacyId, 10)) {
-    throw createHttpError(403, "PHARMACY_ADMIN can only manage branches of assigned pharmacy");
+    throw createHttpError(403, "PHARMACY_ADMIN solo puede gestionar sucursales de su farmacia asignada");
   }
 };
 
@@ -203,7 +203,7 @@ export const createBranch = async (data, actorUserId) => {
     created_by: actor.id,
     updated_by: actor.id,
     code: normalizeString(data.code),
-    name: normalizeRequiredString(data.name, "Name"),
+    name: normalizeRequiredString(data.name, "Nombre"),
     phone: normalizeString(data.phone),
     email: normalizeEmail(data.email),
     address: normalizeString(data.address),
@@ -241,7 +241,7 @@ export const getBranches = async (params, actorUserId) => {
   } else {
     pharmacyId = Number.parseInt(actor.pharmacy_id, 10);
     if (payloadPharmacyId && payloadPharmacyId !== pharmacyId) {
-      throw createHttpError(403, "PHARMACY_ADMIN can only view branches of assigned pharmacy");
+      throw createHttpError(403, "PHARMACY_ADMIN solo puede ver sucursales de su farmacia asignada");
     }
   }
 
@@ -304,14 +304,14 @@ export const getBranches = async (params, actorUserId) => {
 export const updateBranch = async (branchId, data, actorUserId) => {
   const targetBranchId = Number.parseInt(branchId, 10);
   if (Number.isNaN(targetBranchId) || targetBranchId <= 0) {
-    throw createHttpError(400, "Invalid branch id");
+    throw createHttpError(400, "ID de sucursal inválido");
   }
 
   const actor = await getActorContextById(actorUserId);
   const currentBranch = await getBranchById(targetBranchId);
 
   if (!currentBranch) {
-    throw createHttpError(404, "Branch not found");
+    throw createHttpError(404, "Sucursal no encontrada");
   }
 
   assertPharmacyAccess(actor, currentBranch.pharmacy_id);
@@ -320,7 +320,7 @@ export const updateBranch = async (branchId, data, actorUserId) => {
 
   if (Object.prototype.hasOwnProperty.call(data, "pharmacy_id")) {
     if (!actor.is_super_admin) {
-      throw createHttpError(403, "PHARMACY_ADMIN cannot change branch pharmacy");
+      throw createHttpError(403, "PHARMACY_ADMIN no puede cambiar la farmacia de la sucursal");
     }
 
     const pharmacyId = parseRequiredInt(data.pharmacy_id, "pharmacy_id");
@@ -333,7 +333,7 @@ export const updateBranch = async (branchId, data, actorUserId) => {
   }
 
   if (Object.prototype.hasOwnProperty.call(data, "name")) {
-    payload.name = normalizeRequiredString(data.name, "Name");
+    payload.name = normalizeRequiredString(data.name, "Nombre");
   }
 
   if (Object.prototype.hasOwnProperty.call(data, "phone")) {
@@ -361,7 +361,7 @@ export const updateBranch = async (branchId, data, actorUserId) => {
   }
 
   if (Object.keys(payload).length === 0) {
-    throw createHttpError(400, "No valid fields provided for update");
+    throw createHttpError(400, "No se proporcionaron campos válidos para actualizar");
   }
 
   payload.updated_by = actor.id;
